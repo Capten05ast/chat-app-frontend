@@ -3,7 +3,7 @@
 import axios from "axios";
 
 const instance = axios.create({
-  baseURL: "http://localhost:3000/api",
+  baseURL: "https://chat-app-backend-gieg.onrender.com/api",
   withCredentials: true, // IMPORTANT for cookies
 });
 
