@@ -152,21 +152,36 @@ function GroupChatBox({ group, currentUser, onOpenSidebar, onGroupUpdated }) {
   };
 
   const handleSend = async () => {
-    if (!text.trim() && !selectedImage) return;
-    try {
-      let imageUrl = "";
-      if (selectedImage) {
-        const formData = new FormData();
-        formData.append("image", selectedImage);
-        const uploadRes = await axios.post("/messages/upload", formData, {
-          headers: { "Content-Type": "multipart/form-data" },
-        });
-        imageUrl = uploadRes.data.url;
-        clearImage();
-      }
-      await axios.post(`/group-messages/${group._id}`, { message: text, image: imageUrl });
-      setText("");
-    } catch (err) { console.log(err); }
+  if (!text.trim() && !selectedImage) return;
+
+  try {
+    let imageData = null;
+
+    if (selectedImage) {
+      const formData = new FormData();
+      formData.append("image", selectedImage);
+
+      const uploadRes = await axios.post("/messages/upload", formData, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+
+      imageData = {
+        url: uploadRes.data.url,
+        fileId: uploadRes.data.fileId,
+      };
+
+      clearImage();
+    }
+
+    await axios.post(`/group-messages/${group._id}`, {
+      message: text,
+      image: imageData, // 🔥 FIXED
+    });
+
+    setText("");
+  } catch (err) {
+    console.log(err);
+  }
   };
 
   const handleRemoveMember = async (memberId) => {

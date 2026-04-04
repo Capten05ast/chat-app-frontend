@@ -26,7 +26,6 @@ function GroupMessage({ msg, currentUser, groupId, onDeleted }) {
   const [showMenu, setShowMenu] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
-  // Long-press for mobile
   const longPressTimer = useRef(null);
   const handlePressStart = () => {
     if (!isMe) return;
@@ -49,9 +48,7 @@ function GroupMessage({ msg, currentUser, groupId, onDeleted }) {
 
   return (
     <>
-      {showMenu && (
-        <div className="fixed inset-0 z-10" onClick={() => setShowMenu(false)} />
-      )}
+      {showMenu && <div className="fixed inset-0 z-10" onClick={() => setShowMenu(false)} />}
 
       <div
         className={`flex items-end gap-2 mb-1 group ${isMe ? "justify-end" : "justify-start"}`}
@@ -60,7 +57,6 @@ function GroupMessage({ msg, currentUser, groupId, onDeleted }) {
         onTouchEnd={handlePressEnd}
         onTouchMove={handlePressEnd}
       >
-        {/* Other person's avatar */}
         {!isMe && (
           <div className="w-7 h-7 flex-shrink-0 mb-1">
             <div className={`w-7 h-7 rounded-[9px] bg-gradient-to-br ${getAvatarGradient(msg.sender.fullName?.firstName)} flex items-center justify-center shadow-sm`}>
@@ -73,76 +69,48 @@ function GroupMessage({ msg, currentUser, groupId, onDeleted }) {
 
         <div className={`flex items-end gap-1.5 ${isMe ? "flex-row-reverse" : "flex-row"}`}>
 
-          {/* ── ··· button (desktop hover, my msgs only) ── */}
           {isMe && (
-            <div className="relative self-center mb-1 flex-shrink-0">
+            <div className="relative self-center mb-1">
               <button
                 onClick={(e) => { e.stopPropagation(); setShowMenu((p) => !p); }}
-                className="opacity-0 group-hover:opacity-100 focus:opacity-100 w-7 h-7 flex items-center justify-center rounded-full bg-white border border-gray-100 shadow-sm text-gray-400 hover:text-red-500 hover:border-red-200 transition-all active:scale-95"
+                className="opacity-0 group-hover:opacity-100 w-7 h-7 flex items-center justify-center rounded-full bg-white border text-gray-400 hover:text-red-500"
               >
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor">
-                  <circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/>
-                </svg>
+                ⋮
               </button>
 
               {showMenu && (
-                <div
-                  className="absolute bottom-9 right-0 z-20 bg-white border border-gray-100 rounded-2xl overflow-hidden min-w-[130px]"
-                  style={{boxShadow:"0 8px 30px rgba(0,0,0,0.10)"}}
-                >
-                  <button
-                    onClick={handleDelete}
-                    disabled={deleting}
-                    className="w-full flex items-center gap-2.5 px-4 py-3 text-[13px] font-semibold text-red-500 hover:bg-red-50 transition-all disabled:opacity-50"
-                  >
-                    {deleting ? (
-                      <div className="w-3.5 h-3.5 border-2 border-red-300 border-t-red-500 rounded-full animate-spin flex-shrink-0" />
-                    ) : (
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" className="flex-shrink-0">
-                        <polyline points="3 6 5 6 21 6"/>
-                        <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
-                        <path d="M10 11v6M14 11v6"/>
-                        <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/>
-                      </svg>
-                    )}
-                    {deleting ? "Deleting…" : "Delete"}
+                <div className="absolute bottom-9 right-0 bg-white border rounded-xl shadow">
+                  <button onClick={handleDelete} disabled={deleting} className="px-4 py-2 text-red-500">
+                    {deleting ? "Deleting..." : "Delete"}
                   </button>
                 </div>
               )}
             </div>
           )}
 
-          {/* ── Bubble ── */}
-          <div className={`flex flex-col max-w-[75%] sm:max-w-[60%] ${isMe ? "items-end" : "items-start"}`}>
+          <div className={`flex flex-col max-w-[60%] ${isMe ? "items-end" : "items-start"}`}>
+
             {!isMe && (
-              <span className="text-[11px] font-medium text-zinc-400 mb-1 ml-1">
-                {msg.sender.fullName?.firstName}
-              </span>
+              <span className="text-xs text-gray-400">{msg.sender.fullName?.firstName}</span>
             )}
 
+            {/* 🔥 IMAGE FIXED */}
             {msg.image && (
               <img
-                src={msg.image}
+                src={msg.image?.url}
                 alt="shared"
-                onClick={() => window.open(msg.image, "_blank")}
-                className={`max-w-[180px] sm:max-w-[220px] mb-1 shadow-md cursor-pointer hover:opacity-90 transition-opacity duration-200
-                  ${deleting ? "opacity-40" : "opacity-100"}
-                  ${isMe ? "rounded-[16px_16px_4px_16px]" : "rounded-[4px_16px_16px_16px]"}`}
+                onClick={() => window.open(msg.image?.url, "_blank")}
+                className={`max-w-[220px] mb-1 cursor-pointer ${deleting ? "opacity-40" : ""}`}
               />
             )}
 
             {msg.message && (
-              <div className={`px-3.5 sm:px-4 py-2.5 text-[13px] sm:text-[14px] leading-relaxed shadow-sm transition-opacity duration-200
-                ${deleting ? "opacity-40" : "opacity-100"}
-                ${isMe
-                  ? "bg-gradient-to-br from-violet-600 to-pink-500 text-white rounded-[18px_18px_4px_18px]"
-                  : "bg-white text-zinc-800 border border-violet-100 rounded-[4px_18px_18px_18px]"
-                }`}>
+              <div className={`px-3 py-2 ${isMe ? "bg-purple-500 text-white" : "bg-white border"}`}>
                 {msg.message}
               </div>
             )}
 
-            <span className="text-[10px] text-zinc-400 mt-1 px-1">{formatTime(msg.createdAt)}</span>
+            <span className="text-[10px] text-gray-400 mt-1">{formatTime(msg.createdAt)}</span>
           </div>
         </div>
       </div>
@@ -151,7 +119,5 @@ function GroupMessage({ msg, currentUser, groupId, onDeleted }) {
 }
 
 export default GroupMessage;
-
-
 
 

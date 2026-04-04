@@ -108,14 +108,27 @@ function ChatBox({ selectedUser, currentUser, onOpenSidebar }) {
       if (selectedImage) {
         const formData = new FormData();
         formData.append("image", selectedImage);
-        const uploadRes = await axios.post("/messages/upload", formData, { headers: { "Content-Type": "multipart/form-data" } });
-        const imageUrl = uploadRes.data.url;
-        const msgRes = await axios.post("/messages/send", { receiverId: selectedUser._id, image: imageUrl });
+
+        const uploadRes = await axios.post("/messages/upload", formData, {
+          headers: { "Content-Type": "multipart/form-data" },
+        });
+
+        const imageData = {
+          url: uploadRes.data.url,
+          fileId: uploadRes.data.fileId,
+        };
+
+        const msgRes = await axios.post("/messages/send", {
+          receiverId: selectedUser._id,
+          image: imageData,
+        });
+
         setMessages((prev) => [...prev, msgRes.data.data]);
         socket.emit("send_message", msgRes.data.data);
         setSelectedImage(null);
         return;
       }
+
       if (text.trim()) {
         const res = await axios.post("/messages/send", { receiverId: selectedUser._id, text });
         setMessages((prev) => [...prev, res.data.data]);

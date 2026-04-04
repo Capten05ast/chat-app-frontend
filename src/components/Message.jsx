@@ -107,28 +107,29 @@ function Message({ msg, currentUser, onDeleted }) {
               </div>
             )}
 
-            {msg.image && (
-              <div className={`overflow-hidden shadow-md transition-opacity duration-200
-                ${deleting ? "opacity-40" : "opacity-100"}
-                ${isMe ? "rounded-[16px_16px_4px_16px]" : "rounded-[4px_16px_16px_16px]"}`}>
-                {!imgLoaded && (
-                  <div className="w-44 h-36 sm:w-52 sm:h-44 bg-violet-50 border border-violet-100 animate-pulse flex items-center justify-center">
-                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#c4b5fd" strokeWidth="1.5">
-                      <rect x="3" y="3" width="18" height="18" rx="2"/>
-                      <circle cx="8.5" cy="8.5" r="1.5"/>
-                      <polyline points="21 15 16 10 5 21"/>
-                    </svg>
-                  </div>
-                )}
-                <img
-                  src={msg.image}
-                  alt="chat"
-                  onLoad={() => setImgLoaded(true)}
-                  onClick={(e) => { e.stopPropagation(); window.open(msg.image, "_blank"); }}
-                  className={`max-w-[176px] sm:max-w-[220px] block object-cover transition-opacity duration-300 cursor-pointer hover:opacity-90 ${imgLoaded ? "opacity-100" : "opacity-0 h-0"}`}
-                />
-              </div>
-            )}
+{msg.image && (
+  <div className={`overflow-hidden shadow-md transition-opacity duration-200
+    ${deleting ? "opacity-40" : "opacity-100"}
+    ${isMe ? "rounded-[16px_16px_4px_16px]" : "rounded-[4px_16px_16px_16px]"}`}>
+
+    {!imgLoaded && (
+      <div className="w-44 h-36 sm:w-52 sm:h-44 bg-violet-50 border border-violet-100 animate-pulse flex items-center justify-center">
+        ...
+      </div>
+    )}
+
+    <img
+      src={msg.image?.url} // 🔥 FIXED
+      alt="chat"
+      onLoad={() => setImgLoaded(true)}
+      onClick={(e) => {
+        e.stopPropagation();
+        window.open(msg.image?.url, "_blank"); // 🔥 FIXED
+      }}
+      className={`max-w-[176px] sm:max-w-[220px] block object-cover transition-opacity duration-300 cursor-pointer hover:opacity-90 ${imgLoaded ? "opacity-100" : "opacity-0 h-0"}`}
+    />
+  </div>
+)}
 
             <div className={`flex items-center gap-1 px-1 transition-all duration-200 ${showTime ? "opacity-100 max-h-6" : "opacity-0 max-h-0 overflow-hidden"}`}>
               <span className="text-[10px] text-zinc-400">{formatTime(msg.createdAt)}</span>
