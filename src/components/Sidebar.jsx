@@ -58,15 +58,11 @@ function RenameModal({ group, onClose, onRenamed }) {
         />
         {error && <p className="text-[12px] text-red-500">{error}</p>}
         <div className="flex gap-2 justify-end">
-          <button
-            onClick={onClose}
-            className="px-4 py-2 rounded-xl text-[13px] font-semibold text-gray-500 hover:bg-gray-100 transition-all"
-          >Cancel</button>
-          <button
-            onClick={handleSubmit}
-            disabled={loading || !name.trim()}
-            className="px-4 py-2 rounded-xl text-[13px] font-semibold bg-violet-500 text-white hover:bg-violet-600 disabled:opacity-50 transition-all"
-          >{loading ? "Saving…" : "Save"}</button>
+          <button onClick={onClose} className="px-4 py-2 rounded-xl text-[13px] font-semibold text-gray-500 hover:bg-gray-100 transition-all">Cancel</button>
+          <button onClick={handleSubmit} disabled={loading || !name.trim()}
+            className="px-4 py-2 rounded-xl text-[13px] font-semibold bg-violet-500 text-white hover:bg-violet-600 disabled:opacity-50 transition-all">
+            {loading ? "Saving…" : "Save"}
+          </button>
         </div>
       </div>
     </div>
@@ -102,15 +98,11 @@ function DeleteGroupModal({ group, onClose, onDeleted }) {
         </div>
         {error && <p className="text-[12px] text-red-500">{error}</p>}
         <div className="flex gap-2 justify-end">
-          <button
-            onClick={onClose}
-            className="px-4 py-2 rounded-xl text-[13px] font-semibold text-gray-500 hover:bg-gray-100 transition-all"
-          >Cancel</button>
-          <button
-            onClick={handleDelete}
-            disabled={loading}
-            className="px-4 py-2 rounded-xl text-[13px] font-semibold bg-red-500 text-white hover:bg-red-600 disabled:opacity-50 transition-all"
-          >{loading ? "Deleting…" : "Delete"}</button>
+          <button onClick={onClose} className="px-4 py-2 rounded-xl text-[13px] font-semibold text-gray-500 hover:bg-gray-100 transition-all">Cancel</button>
+          <button onClick={handleDelete} disabled={loading}
+            className="px-4 py-2 rounded-xl text-[13px] font-semibold bg-red-500 text-white hover:bg-red-600 disabled:opacity-50 transition-all">
+            {loading ? "Deleting…" : "Delete"}
+          </button>
         </div>
       </div>
     </div>
@@ -126,7 +118,6 @@ const Sidebar = forwardRef(function Sidebar(
   const [search, setSearch] = useState("");
   const [activeTab, setActiveTab] = useState("dms");
   const [showCreateGroup, setShowCreateGroup] = useState(false);
-
   const [renameTarget, setRenameTarget] = useState(null);
   const [deleteTarget, setDeleteTarget] = useState(null);
 
@@ -134,25 +125,49 @@ const Sidebar = forwardRef(function Sidebar(
   useEffect(() => { setSelectedUserRef.current = setSelectedUser; }, [setSelectedUser]);
 
   const fetchUsers = async () => {
-    try { const res = await axios.get("/users"); setUsers(res.data); } catch (err) { console.log(err); }
+    try {
+      const res = await axios.get("/users");
+      setUsers(res.data);
+    } catch (err) { console.log(err); }
   };
+
   const fetchGroups = async () => {
-    try { const res = await axios.get("/groups/my-groups"); setGroups(res.data); } catch (err) { console.log(err); }
+    try {
+      const res = await axios.get("/groups/my-groups");
+      setGroups(res.data);
+    } catch (err) { console.log(err); }
   };
 
   useImperativeHandle(ref, () => ({ fetchUsers, fetchGroups }));
-  useEffect(() => { fetchUsers(); fetchGroups(); }, []);
+
+  useEffect(() => {
+    fetchUsers();
+    fetchGroups();
+  }, []);
 
   useEffect(() => {
     const handleOnlineUsers = (u) => setOnlineUsers(u);
 
-    // ── FIX: update both the groups list AND the currently open selectedUser ──
-    const handleMemberJoined = ({ groupId, members }) => {
-      // 1. Always refresh the sidebar group list
-      fetchGroups();
+    // 🔥 new_connection — someone connected with us OR we connected with someone
+    // Re-fetch users directly inside Sidebar — most reliable, no ref chain needed
+    const handleNewConnection = () => {
+      console.log("[socket] new_connection received — refreshing users");
+      fetchUsers();
+    };
 
-      // 2. If this group is currently open, push new members into selectedUser
-      //    so GroupChatBox receives updated props immediately (no refresh needed)
+    // 🔥 connection_removed — someone disconnected
+    // Re-fetch users AND clear selected if that person's chat is open
+    const handleConnectionRemoved = ({ userId }) => {
+      console.log("[socket] connection_removed received — refreshing users", userId);
+      fetchUsers();
+      setSelectedUserRef.current((prev) => {
+        if (prev && !prev.isGroup && prev._id?.toString() === userId?.toString()) return null;
+        return prev;
+      });
+    };
+
+    const handleMemberJoined = ({ groupId, members }) => {
+      fetchGroups();
       if (members && members.length > 0) {
         setSelectedUserRef.current((prev) => {
           if (prev?.isGroup && prev._id?.toString() === groupId?.toString()) {
@@ -160,13 +175,9 @@ const Sidebar = forwardRef(function Sidebar(
           }
           return prev;
         });
-
-        // 3. Also update the groups state directly for instant sidebar UI update
         setGroups((prev) =>
           prev.map((g) =>
-            g._id?.toString() === groupId?.toString()
-              ? { ...g, members }
-              : g
+            g._id?.toString() === groupId?.toString() ? { ...g, members } : g
           )
         );
       }
@@ -204,28 +215,39 @@ const Sidebar = forwardRef(function Sidebar(
       );
     };
 
-    socket.on("online_users",           handleOnlineUsers);
-    socket.on("group_member_joined",    handleMemberJoined);
-    socket.on("group_members_updated",  handleMembersUpdated);
-    socket.on("removed_from_group",     handleRemovedFromGroup);
-    socket.on("new_group_invite",       handleNewGroupInvite);
-    socket.on("group_name_updated",     handleGroupNameUpdated);
-    socket.on("group_deleted",          handleGroupDeleted);
+    socket.on("online_users",          handleOnlineUsers);
+    socket.on("new_connection",        handleNewConnection);      // 🔥 NEW
+    socket.on("connection_removed",    handleConnectionRemoved);  // 🔥 NEW
+    socket.on("group_member_joined",   handleMemberJoined);
+    socket.on("group_members_updated", handleMembersUpdated);
+    socket.on("removed_from_group",    handleRemovedFromGroup);
+    socket.on("new_group_invite",      handleNewGroupInvite);
+    socket.on("group_name_updated",    handleGroupNameUpdated);
+    socket.on("group_deleted",         handleGroupDeleted);
 
     return () => {
-      socket.off("online_users",           handleOnlineUsers);
-      socket.off("group_member_joined",    handleMemberJoined);
-      socket.off("group_members_updated",  handleMembersUpdated);
-      socket.off("removed_from_group",     handleRemovedFromGroup);
-      socket.off("new_group_invite",       handleNewGroupInvite);
-      socket.off("group_name_updated",     handleGroupNameUpdated);
-      socket.off("group_deleted",          handleGroupDeleted);
+      socket.off("online_users",          handleOnlineUsers);
+      socket.off("new_connection",        handleNewConnection);
+      socket.off("connection_removed",    handleConnectionRemoved);
+      socket.off("group_member_joined",   handleMemberJoined);
+      socket.off("group_members_updated", handleMembersUpdated);
+      socket.off("removed_from_group",    handleRemovedFromGroup);
+      socket.off("new_group_invite",      handleNewGroupInvite);
+      socket.off("group_name_updated",    handleGroupNameUpdated);
+      socket.off("group_deleted",         handleGroupDeleted);
     };
   }, []);
 
   const handleDisconnect = async (e, userId) => {
     e.stopPropagation();
-    try { await axios.post("/users/disconnect", { userId }); fetchUsers(); } catch (err) { console.log(err); }
+    try {
+      await axios.post("/users/disconnect", { userId });
+      // Optimistic local removal — don't wait for socket
+      setUsers((prev) => prev.filter((u) => u._id !== userId));
+      setSelectedUserRef.current((prev) =>
+        prev && !prev.isGroup && prev._id === userId ? null : prev
+      );
+    } catch (err) { console.log(err); }
   };
 
   const handleRenamed = (groupId, name) => {
@@ -255,18 +277,10 @@ const Sidebar = forwardRef(function Sidebar(
       )}
 
       {renameTarget && (
-        <RenameModal
-          group={renameTarget}
-          onClose={() => setRenameTarget(null)}
-          onRenamed={handleRenamed}
-        />
+        <RenameModal group={renameTarget} onClose={() => setRenameTarget(null)} onRenamed={handleRenamed} />
       )}
       {deleteTarget && (
-        <DeleteGroupModal
-          group={deleteTarget}
-          onClose={() => setDeleteTarget(null)}
-          onDeleted={handleDeleted}
-        />
+        <DeleteGroupModal group={deleteTarget} onClose={() => setDeleteTarget(null)} onDeleted={handleDeleted} />
       )}
 
       {showCreateGroup && (
@@ -293,6 +307,7 @@ const Sidebar = forwardRef(function Sidebar(
         ${isOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"}
       `}>
 
+        {/* ── HEADER ── */}
         <div className="px-4 pt-5 pb-3">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2.5">
@@ -317,6 +332,7 @@ const Sidebar = forwardRef(function Sidebar(
             </div>
           </div>
 
+          {/* Search */}
           <div className="relative mb-3">
             <svg className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" strokeWidth="2.5" strokeLinecap="round">
               <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
@@ -329,6 +345,7 @@ const Sidebar = forwardRef(function Sidebar(
             />
           </div>
 
+          {/* Tabs */}
           <div className="flex gap-1 p-1 bg-gray-100 rounded-xl">
             <button
               onClick={() => setActiveTab("dms")}
@@ -341,6 +358,7 @@ const Sidebar = forwardRef(function Sidebar(
           </div>
         </div>
 
+        {/* Story-ring avatars row */}
         {activeTab === "dms" && filteredUsers.length > 0 && (
           <div className="px-4 pb-3 overflow-x-auto flex gap-3 scrollbar-none">
             {filteredUsers.slice(0, 6).map((user) => {
@@ -359,6 +377,7 @@ const Sidebar = forwardRef(function Sidebar(
           </div>
         )}
 
+        {/* Section label */}
         <div className="px-4 pb-2 flex items-center justify-between">
           <span className="text-[11px] font-semibold text-gray-400 uppercase tracking-widest">
             {activeTab === "dms" ? `People · ${filteredUsers.length}` : `Groups · ${filteredGroups.length}`}
@@ -373,12 +392,14 @@ const Sidebar = forwardRef(function Sidebar(
           )}
         </div>
 
+        {/* ── LIST ── */}
         <div className="flex-1 overflow-y-auto px-2 pb-4 space-y-px">
 
+          {/* DMs */}
           {activeTab === "dms" && (
             <>
               {filteredUsers.map((user) => {
-                const isOnline  = onlineUsers.includes(user._id.toString());
+                const isOnline   = onlineUsers.includes(user._id.toString());
                 const isSelected = selectedUser?._id === user._id && !selectedUser?.isGroup;
                 return (
                   <div
@@ -423,20 +444,20 @@ const Sidebar = forwardRef(function Sidebar(
                       <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
                     </svg>
                   </div>
-                  <p className="text-sm font-semibold text-gray-500">No results</p>
-                  <p className="text-xs text-gray-400 mt-1">Try a different name</p>
+                  <p className="text-sm font-semibold text-gray-500">No connections yet</p>
+                  <p className="text-xs text-gray-400 mt-1">Add someone by email from the navbar</p>
                 </div>
               )}
             </>
           )}
 
+          {/* Groups */}
           {activeTab === "groups" && (
             <>
               {filteredGroups.map((group) => {
                 const isSelected = selectedUser?._id === group._id && selectedUser?.isGroup;
                 const isAdmin = group.admin?._id?.toString() === currentUser?._id?.toString()
                              || group.admin?.toString()       === currentUser?._id?.toString();
-
                 return (
                   <div
                     key={group._id}
@@ -447,7 +468,6 @@ const Sidebar = forwardRef(function Sidebar(
                     <div className="w-12 h-12 rounded-[15px] bg-gradient-to-br from-violet-500 to-pink-500 flex items-center justify-center shadow-sm flex-shrink-0">
                       <span className="text-white font-bold text-lg leading-none">{group.name[0].toUpperCase()}</span>
                     </div>
-
                     <div className="flex-1 min-w-0">
                       <span className={`text-[14px] font-semibold truncate block ${isSelected ? "text-violet-700" : "text-gray-900"}`}>
                         {group.name}
@@ -456,7 +476,6 @@ const Sidebar = forwardRef(function Sidebar(
                         {group.members.length} member{group.members.length !== 1 ? "s" : ""}
                       </p>
                     </div>
-
                     {isAdmin ? (
                       <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-all duration-150 flex-shrink-0">
                         <button
@@ -490,7 +509,6 @@ const Sidebar = forwardRef(function Sidebar(
                   </div>
                 );
               })}
-
               {filteredGroups.length === 0 && (
                 <div className="flex flex-col items-center justify-center py-16 text-center">
                   <div className="w-14 h-14 bg-violet-50 rounded-2xl flex items-center justify-center mb-3">
