@@ -81,6 +81,17 @@ function GroupChatBox({ group, currentUser, onOpenSidebar, onGroupUpdated }) {
     return () => socket.off("group_members_updated", handler);
   }, []);
 
+  // 🔥 FIX: listen for when someone accepts invite — updates member list live on admin's tab
+  useEffect(() => {
+    const handler = ({ groupId, members }) => {
+      if (groupId !== currentGroupIdRef.current) return;
+      setLocalMembers(members);
+      if (onGroupUpdated) onGroupUpdated();
+    };
+    socket.on("group_member_joined", handler);
+    return () => socket.off("group_member_joined", handler);
+  }, []);
+
   useEffect(() => {
     const handler = ({ groupId, seenBy }) => {
       if (groupId !== currentGroupIdRef.current) return;
@@ -216,25 +227,21 @@ function GroupChatBox({ group, currentUser, onOpenSidebar, onGroupUpdated }) {
         {/* ── HEADER ── */}
         <div className="flex items-center gap-3 px-4 py-3 bg-white border-b border-gray-100 flex-shrink-0" style={{boxShadow:"0 1px 0 #f3f4f6"}}>
 
-          {/* Mobile menu */}
           <button onClick={onOpenSidebar} className="gcb-hbtn md:hidden flex-shrink-0 w-8 h-8 flex items-center justify-center text-gray-400 -ml-1">
             <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
               <line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/>
             </svg>
           </button>
 
-          {/* Group avatar */}
           <div className="w-11 h-11 rounded-2xl flex items-center justify-center flex-shrink-0 shadow-md text-white font-bold text-base" style={{background: groupGradient}}>
             {group.name[0].toUpperCase()}
           </div>
 
-          {/* Name + count */}
           <div className="flex-1 min-w-0">
             <h3 className="font-bold text-gray-900 text-[15px] leading-tight truncate">{group.name}</h3>
             <p className="text-[12px] text-gray-400 mt-0.5 font-medium">{localMembers.length} members</p>
           </div>
 
-          {/* Members toggle */}
           <button
             onClick={() => { setShowMembers(!showMembers); if (showMembers) setShowInviteList(false); }}
             className={`gcb-hbtn flex-shrink-0 w-9 h-9 flex items-center justify-center ${showMembers ? "gcb-hbtn-active" : "text-gray-400"}`}
@@ -271,7 +278,6 @@ function GroupChatBox({ group, currentUser, onOpenSidebar, onGroupUpdated }) {
             ) : (
               Object.entries(groupedMessages).map(([date, msgs]) => (
                 <div key={date}>
-                  {/* Date divider */}
                   <div className="flex items-center gap-3 my-5">
                     <div className="flex-1 h-px bg-gray-200"/>
                     <span className="text-[11px] font-semibold text-gray-400 bg-white px-3 py-1 rounded-full border border-gray-100 shadow-sm flex-shrink-0">
@@ -291,7 +297,6 @@ function GroupChatBox({ group, currentUser, onOpenSidebar, onGroupUpdated }) {
 
                     return (
                       <div key={msg._id} className={`flex items-end gap-2 mb-1.5 ${isMe ? "justify-end" : "justify-start"}`}>
-                        {/* Other avatar */}
                         {!isMe && (
                           <div className="w-7 h-7 flex-shrink-0 mb-0.5">
                             {showAvatar && (
@@ -328,7 +333,6 @@ function GroupChatBox({ group, currentUser, onOpenSidebar, onGroupUpdated }) {
                             </div>
                           )}
 
-                          {/* Time + seen */}
                           <div className={`flex items-center gap-1 mt-1 ${isMe ? "flex-row-reverse" : "flex-row"}`}>
                             <span className="text-[10px] text-gray-400">{formatTime(msg.createdAt)}</span>
                             {isMe && (
@@ -353,12 +357,10 @@ function GroupChatBox({ group, currentUser, onOpenSidebar, onGroupUpdated }) {
           {/* ── MEMBERS PANEL ── */}
           {showMembers && (
             <>
-              {/* Mobile backdrop */}
               <div className="md:hidden absolute inset-0 bg-black/20 z-10 backdrop-blur-sm" onClick={() => setShowMembers(false)}/>
 
               <div className="gcb-panel-anim absolute right-0 top-0 bottom-0 z-20 md:relative md:z-auto w-[272px] bg-white border-l border-gray-100 flex flex-col shadow-xl md:shadow-none">
 
-                {/* Panel header */}
                 <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between flex-shrink-0">
                   <span className="text-[13px] font-bold text-gray-900">Members · {localMembers.length}</span>
                   <div className="flex items-center gap-1.5">
@@ -386,7 +388,6 @@ function GroupChatBox({ group, currentUser, onOpenSidebar, onGroupUpdated }) {
                   </div>
                 </div>
 
-                {/* Invite list */}
                 {showInviteList && (
                   <div className="border-b border-gray-100 flex-shrink-0" style={{background:"#faf5ff"}}>
                     <p className="text-[10px] font-bold text-violet-500 uppercase tracking-wider px-4 pt-3 pb-1.5">
@@ -417,7 +418,6 @@ function GroupChatBox({ group, currentUser, onOpenSidebar, onGroupUpdated }) {
                   </div>
                 )}
 
-                {/* Members list */}
                 <div className="gcb-panel flex-1 overflow-y-auto px-2 py-2 space-y-0.5">
                   {localMembers.map((member) => {
                     const m = typeof member === "object" ? member : { _id: member };
@@ -458,7 +458,7 @@ function GroupChatBox({ group, currentUser, onOpenSidebar, onGroupUpdated }) {
         {/* ── IMAGE PREVIEW ── */}
         {imagePreview && (
           <div className="flex items-center gap-3 px-4 py-3 border-t border-gray-100 flex-shrink-0" style={{background:"#fdf4ff"}}>
-            <img src={imagePreview} alt="preview" className="w-13 h-13 object-cover rounded-2xl shadow-sm flex-shrink-0" style={{width:52,height:52,border:"1.5px solid #e9d5ff"}}/>
+            <img src={imagePreview} alt="preview" className="object-cover rounded-2xl shadow-sm flex-shrink-0" style={{width:52,height:52,border:"1.5px solid #e9d5ff"}}/>
             <div className="flex-1 min-w-0">
               <p className="text-sm font-semibold text-gray-800">Image ready to send</p>
               <p className="text-xs text-gray-400 truncate mt-0.5">{selectedImage?.name}</p>
@@ -476,7 +476,6 @@ function GroupChatBox({ group, currentUser, onOpenSidebar, onGroupUpdated }) {
         <div className="flex items-center gap-2 px-3 sm:px-4 py-3 bg-white border-t border-gray-100 flex-shrink-0">
           <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleImageChange}/>
 
-          {/* Image button */}
           <button onClick={() => fileRef.current.click()}
             className="flex-shrink-0 w-9 h-9 rounded-xl bg-gray-100 text-gray-400 flex items-center justify-center transition-all hover:bg-violet-50 hover:text-violet-500 active:scale-95">
             <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
@@ -484,7 +483,6 @@ function GroupChatBox({ group, currentUser, onOpenSidebar, onGroupUpdated }) {
             </svg>
           </button>
 
-          {/* Text input */}
           <textarea
             rows={1}
             value={text}
@@ -495,7 +493,6 @@ function GroupChatBox({ group, currentUser, onOpenSidebar, onGroupUpdated }) {
             style={{fontFamily:"inherit", lineHeight:"1.5"}}
           />
 
-          {/* Send button */}
           <button onClick={handleSend} disabled={!text.trim() && !selectedImage}
             className="gcb-send flex-shrink-0 w-9 h-9 rounded-full flex items-center justify-center text-white shadow-md disabled:opacity-40 disabled:cursor-not-allowed"
             style={{background: "linear-gradient(135deg,#7c3aed,#ec4899)"}}>
@@ -511,9 +508,5 @@ function GroupChatBox({ group, currentUser, onOpenSidebar, onGroupUpdated }) {
 }
 
 export default GroupChatBox;
-
-
-
-
 
 
