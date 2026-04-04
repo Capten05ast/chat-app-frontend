@@ -6,11 +6,6 @@ import axios from "../api/axios";
 import { socket } from "../socket";
 import GroupMessage from "./GroupMessage";
 
-const formatTime = (dateStr) => {
-  const date = new Date(dateStr);
-  return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-};
-
 const formatDate = (dateStr) => {
   const date = new Date(dateStr);
   const today = new Date();
@@ -84,7 +79,7 @@ function GroupChatBox({ group, currentUser, onOpenSidebar, onGroupUpdated }) {
     return () => socket.off("group_members_updated", handler);
   }, []);
 
-  // 🔥 Someone accepted invite — update member list live on admin's tab
+  // 🔥 Someone accepted invite — update member list live
   useEffect(() => {
     const handler = async ({ groupId, members }) => {
       console.log("[socket] group_member_joined received", groupId, "current:", currentGroupIdRef.current);
@@ -122,7 +117,7 @@ function GroupChatBox({ group, currentUser, onOpenSidebar, onGroupUpdated }) {
     return () => socket.off("group_messages_seen", handler);
   }, []);
 
-  // 🔥 Real-time message delete (from GPT — kept as it's a new feature)
+  // Real-time message delete
   useEffect(() => {
     const handler = ({ groupId, messageId }) => {
       if (groupId !== currentGroupIdRef.current) return;
@@ -175,7 +170,6 @@ function GroupChatBox({ group, currentUser, onOpenSidebar, onGroupUpdated }) {
     if (fileRef.current) fileRef.current.value = "";
   };
 
-  // 🔥 Updated handleSend — supports fileId from GPT's upload response
   const handleSend = async () => {
     if (!text.trim() && !selectedImage) return;
     try {
@@ -211,7 +205,7 @@ function GroupChatBox({ group, currentUser, onOpenSidebar, onGroupUpdated }) {
     } catch (err) { console.log(err); }
   };
 
-  // 🔥 Optimistic delete — from GPT, kept as new feature
+  // Optimistic delete — remove from list instantly on sender's side
   const handleDeleted = (messageId) => {
     setMessages((prev) => prev.filter((m) => m._id !== messageId.toString()));
   };
@@ -326,16 +320,29 @@ function GroupChatBox({ group, currentUser, onOpenSidebar, onGroupUpdated }) {
                     <div className="flex-1 h-px bg-gray-200"/>
                   </div>
 
-                  {/* 🔥 Using GroupMessage component (GPT's addition — kept) */}
-                  {msgs.map((msg) => (
-                    <GroupMessage
-                      key={msg._id}
-                      msg={msg}
-                      currentUser={currentUser}
-                      groupId={group._id}
-                      onDeleted={handleDeleted}
-                    />
-                  ))}
+                  {msgs.map((msg, idx) => {
+                    const isMe = msg.sender._id === currentUser._id;
+                    // Only show avatar + name on the first message of a consecutive run from same sender
+                    const showAvatar = !isMe && (idx === 0 || msgs[idx - 1]?.sender._id !== msg.sender._id);
+                    const showName = showAvatar;
+                    const allMembersSeen = localMembers.every((m) => {
+                      const memberId = typeof m === "object" ? m._id.toString() : m.toString();
+                      return msg.seenBy?.some((s) => s.toString() === memberId);
+                    });
+
+                    return (
+                      <GroupMessage
+                        key={msg._id}
+                        msg={msg}
+                        currentUser={currentUser}
+                        groupId={group._id}
+                        onDeleted={handleDeleted}
+                        showAvatar={showAvatar}
+                        showName={showName}
+                        allMembersSeen={allMembersSeen}
+                      />
+                    );
+                  })}
                 </div>
               ))
             )}
@@ -496,6 +503,7 @@ function GroupChatBox({ group, currentUser, onOpenSidebar, onGroupUpdated }) {
 }
 
 export default GroupChatBox;
+
 
 
 
