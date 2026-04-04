@@ -35,6 +35,30 @@ function Home({ user, setUser }) {
     return () => socket.off("new_group_invite", handleNewInvite);
   }, []);
 
+  // 🔥 Listen for new_connection — refresh sidebar users list live
+  // Fires when THIS user connects with someone OR someone connects with them
+  useEffect(() => {
+    const handleNewConnection = () => {
+      sidebarRef.current?.fetchUsers();
+    };
+    socket.on("new_connection", handleNewConnection);
+    return () => socket.off("new_connection", handleNewConnection);
+  }, []);
+
+  // 🔥 Listen for connection_removed — refresh sidebar + clear chat if open
+  useEffect(() => {
+    const handleConnectionRemoved = ({ userId }) => {
+      sidebarRef.current?.fetchUsers();
+      // If the disconnected person's chat is open, close it
+      setSelectedUser((prev) => {
+        if (prev && !prev.isGroup && prev._id === userId) return null;
+        return prev;
+      });
+    };
+    socket.on("connection_removed", handleConnectionRemoved);
+    return () => socket.off("connection_removed", handleConnectionRemoved);
+  }, []);
+
   const fetchPendingInvites = async () => {
     try {
       const res = await axios.get("/groups/pending-invites");
@@ -62,6 +86,7 @@ function Home({ user, setUser }) {
       showToast("Connected successfully! 🎉");
       setConnectEmail("");
       setShowConnectInput(false);
+      // Still do local fetch as immediate fallback in case socket is slow
       setTimeout(() => sidebarRef.current?.fetchUsers(), 300);
     } catch (err) {
       showToast(err.response?.data?.message || "User not found!", "error");
@@ -120,7 +145,6 @@ function Home({ user, setUser }) {
             <div className="w-9 h-9 rounded-[12px] bg-white/20 border border-white/30 group-hover:border-white/60 flex items-center justify-center shadow-inner transition-all">
               <span className="text-white font-bold text-sm">{initials}</span>
             </div>
-            {/* Name text — desktop only */}
             <div className="hidden sm:block text-left">
               <p className="text-white font-bold text-[14px] leading-tight">{user.fullName.firstName}</p>
               <p className="text-white/60 text-[11px] leading-none">Welcome back 👋</p>
@@ -130,7 +154,7 @@ function Home({ user, setUser }) {
           {/* CENTER */}
           <div className="flex-1 flex items-center justify-center">
 
-            {/* Mobile: Bold brand name centered like WhatsApp/Instagram */}
+            {/* Mobile: Bold brand name */}
             <div className="flex sm:hidden items-center gap-2">
               <div className="w-7 h-7 rounded-[9px] bg-white/20 border border-white/30 flex items-center justify-center">
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="white">
@@ -182,7 +206,7 @@ function Home({ user, setUser }) {
           {/* RIGHT — Actions */}
           <div className="flex items-center gap-1.5 flex-shrink-0">
 
-            {/* Mobile: connect icon tap-to-expand (full-bar overlay) */}
+            {/* Mobile: connect icon tap-to-expand */}
             <div className="sm:hidden">
               {showConnectInput && (
                 <div className="fixed inset-x-0 top-0 z-50 bg-gradient-to-r from-violet-600 via-violet-500 to-pink-500 px-4 py-3 flex items-center gap-2 shadow-xl">
@@ -337,6 +361,5 @@ function Home({ user, setUser }) {
 }
 
 export default Home;
-
 
 
