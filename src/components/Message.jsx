@@ -14,7 +14,6 @@ function Message({ msg, currentUser, onDeleted }) {
   const [showMenu, setShowMenu] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
-  // Long-press for mobile (my messages only)
   const longPressTimer = useRef(null);
   const handlePressStart = () => {
     if (!isMe) return;
@@ -35,9 +34,11 @@ function Message({ msg, currentUser, onDeleted }) {
     setShowMenu(false);
   };
 
+  // ✅ Handles both old string format and new { url, fileId } object format
+  const imageSrc = msg.image?.url ?? (typeof msg.image === "string" ? msg.image : null);
+
   return (
     <>
-      {/* Backdrop — closes menu on click-away */}
       {showMenu && (
         <div className="fixed inset-0 z-10" onClick={() => setShowMenu(false)} />
       )}
@@ -52,7 +53,7 @@ function Message({ msg, currentUser, onDeleted }) {
       >
         <div className={`flex items-end gap-1.5 ${isMe ? "flex-row-reverse" : "flex-row"}`}>
 
-          {/* ── ··· button (desktop hover, my msgs only) ── */}
+          {/* ··· delete button — desktop hover only, my messages only */}
           {isMe && (
             <div className="relative self-center mb-1 flex-shrink-0">
               <button
@@ -92,11 +93,11 @@ function Message({ msg, currentUser, onDeleted }) {
             </div>
           )}
 
-          {/* ── Bubble ── */}
+          {/* Bubble */}
           <div className={`flex flex-col max-w-[75%] sm:max-w-[60%] gap-0.5 ${isMe ? "items-end" : "items-start"}`}>
 
             {msg.text && (
-              <div className={`px-4 py-2.5 text-[14px] leading-relaxed break-words transition-opacity duration-200
+              <div className={`px-4 py-2.5 text-[15px] sm:text-[14px] leading-relaxed break-words transition-opacity duration-200
                 ${deleting ? "opacity-40" : "opacity-100"}
                 ${isMe
                   ? "bg-gradient-to-br from-violet-600 to-pink-500 text-white shadow-md shadow-violet-200/40 rounded-[18px_18px_4px_18px]"
@@ -107,34 +108,33 @@ function Message({ msg, currentUser, onDeleted }) {
               </div>
             )}
 
-{msg.image && (
-  <div className={`overflow-hidden shadow-md transition-opacity duration-200
-    ${deleting ? "opacity-40" : "opacity-100"}
-    ${isMe ? "rounded-[16px_16px_4px_16px]" : "rounded-[4px_16px_16px_16px]"}`}>
-
-    {!imgLoaded && (
-      <div className="w-44 h-36 sm:w-52 sm:h-44 bg-violet-50 border border-violet-100 animate-pulse flex items-center justify-center">
-        ...
-      </div>
-    )}
-
-    <img
-      src={msg.image?.url} // 🔥 FIXED
-      alt="chat"
-      onLoad={() => setImgLoaded(true)}
-      onClick={(e) => {
-        e.stopPropagation();
-        window.open(msg.image?.url, "_blank"); // 🔥 FIXED
-      }}
-      className={`max-w-[176px] sm:max-w-[220px] block object-cover transition-opacity duration-300 cursor-pointer hover:opacity-90 ${imgLoaded ? "opacity-100" : "opacity-0 h-0"}`}
-    />
-  </div>
-)}
+            {imageSrc && (
+              <div className={`overflow-hidden shadow-md transition-opacity duration-200
+                ${deleting ? "opacity-40" : "opacity-100"}
+                ${isMe ? "rounded-[16px_16px_4px_16px]" : "rounded-[4px_16px_16px_16px]"}`}>
+                {!imgLoaded && (
+                  <div className="w-44 h-36 sm:w-52 sm:h-44 bg-violet-50 border border-violet-100 animate-pulse flex items-center justify-center">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#c4b5fd" strokeWidth="1.5">
+                      <rect x="3" y="3" width="18" height="18" rx="2"/>
+                      <circle cx="8.5" cy="8.5" r="1.5"/>
+                      <polyline points="21 15 16 10 5 21"/>
+                    </svg>
+                  </div>
+                )}
+                <img
+                  src={imageSrc}
+                  alt="chat"
+                  onLoad={() => setImgLoaded(true)}
+                  onClick={(e) => { e.stopPropagation(); window.open(imageSrc, "_blank"); }}
+                  className={`max-w-[176px] sm:max-w-[220px] block object-cover transition-opacity duration-300 cursor-pointer hover:opacity-90 ${imgLoaded ? "opacity-100" : "opacity-0 h-0"}`}
+                />
+              </div>
+            )}
 
             <div className={`flex items-center gap-1 px-1 transition-all duration-200 ${showTime ? "opacity-100 max-h-6" : "opacity-0 max-h-0 overflow-hidden"}`}>
-              <span className="text-[10px] text-zinc-400">{formatTime(msg.createdAt)}</span>
+              <span className="text-[11px] sm:text-[10px] text-zinc-400">{formatTime(msg.createdAt)}</span>
               {isMe && (
-                <span className={`text-[11px] font-semibold leading-none transition-colors ${msg.seen ? "text-violet-500" : "text-zinc-300"}`}>
+                <span className={`text-[12px] sm:text-[11px] font-semibold leading-none transition-colors ${msg.seen ? "text-violet-500" : "text-zinc-300"}`}>
                   {msg.seen ? "✔✔" : "✔"}
                 </span>
               )}
@@ -148,5 +148,6 @@ function Message({ msg, currentUser, onDeleted }) {
 }
 
 export default Message;
+
 
 
