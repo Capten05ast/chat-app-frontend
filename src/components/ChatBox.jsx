@@ -51,9 +51,11 @@ function ChatBox({ selectedUser, currentUser, onOpenSidebar }) {
   useEffect(() => {
     const handleReceive = (data) => {
       if (data.senderId === selectedUser?._id || data.receiverId === selectedUser?._id) {
-        setMessages((prev) => [...prev, data]);
-      }
-    };
+      setMessages((prev) => [...prev, data]);
+      // Add this line:
+      axios.post("/messages/mark-seen", { senderId: selectedUser._id });
+    }
+  };
     socket.on("receive_message", handleReceive);
     return () => socket.off("receive_message", handleReceive);
   }, [selectedUser]);

@@ -44,14 +44,23 @@ function GroupChatBox({ group, currentUser, onOpenSidebar, onGroupUpdated }) {
   const [showMembers, setShowMembers] = useState(false);
   const [connections, setConnections] = useState([]);
   const [showInviteList, setShowInviteList] = useState(false);
+
+  // localMembers is the single source of truth for the members panel.
+  // It is kept in sync via two channels:
+  //   1. group.members prop update (from Sidebar pushing selectedUser update)
+  //   2. socket events as a local fallback
   const [localMembers, setLocalMembers] = useState(group?.members || []);
 
   const bottomRef = useRef(null);
   const fileRef = useRef(null);
   const currentGroupIdRef = useRef(null);
 
+  // Sync localMembers whenever the group prop changes (covers the admin case)
   useEffect(() => {
     setLocalMembers(group?.members || []);
+  }, [group?.members]);
+
+  useEffect(() => {
     currentGroupIdRef.current = group?._id ?? null;
     if (!group?._id) return;
     fetchMessages();
@@ -59,8 +68,6 @@ function GroupChatBox({ group, currentUser, onOpenSidebar, onGroupUpdated }) {
     setConnections([]);
     setShowMembers(false);
   }, [group?._id]);
-
-  useEffect(() => { setLocalMembers(group?.members || []); }, [group?.members]);
 
   // New group message
   useEffect(() => {
@@ -83,30 +90,18 @@ function GroupChatBox({ group, currentUser, onOpenSidebar, onGroupUpdated }) {
     return () => socket.off("group_members_updated", handler);
   }, []);
 
-  // 🔥 FIX: Someone accepted the group invite
-  // Re-fetch members fresh from the server — avoids any string/ObjectId mismatch
+  // Member joined — this fires on the admin's screen too because the backend
+  // now emits to personal rooms as a fallback (not just the group socket room).
+  // We keep this as a local fallback; the primary update path is:
+  //   backend → personal room emit → Sidebar handler → setSelectedUser → group prop update → useEffect above
   useEffect(() => {
-    const handler = async ({ groupId, members }) => {
-      console.log("[socket] group_member_joined received", groupId, "current:", currentGroupIdRef.current);
+    const handler = ({ groupId, members }) => {
+      if (groupId?.toString() !== currentGroupIdRef.current?.toString()) return;
 
-      // 🔥 Compare as strings to avoid ObjectId vs string mismatch
-      if (groupId.toString() !== currentGroupIdRef.current?.toString()) return;
-
-      // Option A: use the members sent in the payload (already populated from backend)
       if (members && members.length > 0) {
         setLocalMembers(members);
-      } else {
-        // Option B: fallback — re-fetch from server if payload is empty for any reason
-        try {
-          const res = await axios.get(`/groups/my-groups`);
-          const updatedGroup = res.data.find((g) => g._id.toString() === groupId.toString());
-          if (updatedGroup) setLocalMembers(updatedGroup.members);
-        } catch (err) {
-          console.log("Failed to re-fetch group members:", err);
-        }
       }
 
-      // Always tell sidebar to refresh group list too
       if (onGroupUpdated) onGroupUpdated();
     };
 
@@ -531,5 +526,6 @@ function GroupChatBox({ group, currentUser, onOpenSidebar, onGroupUpdated }) {
 }
 
 export default GroupChatBox;
+
 
 

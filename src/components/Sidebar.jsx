@@ -24,7 +24,6 @@ const StoryRing = ({ active, children }) => (
   </div>
 );
 
-// ── tiny modal for renaming ──────────────────────────────────────────────────
 function RenameModal({ group, onClose, onRenamed }) {
   const [name, setName] = useState(group.name);
   const [loading, setLoading] = useState(false);
@@ -74,7 +73,6 @@ function RenameModal({ group, onClose, onRenamed }) {
   );
 }
 
-// ── delete confirmation modal ────────────────────────────────────────────────
 function DeleteGroupModal({ group, onClose, onDeleted }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -119,7 +117,6 @@ function DeleteGroupModal({ group, onClose, onDeleted }) {
   );
 }
 
-// ── main Sidebar ─────────────────────────────────────────────────────────────
 const Sidebar = forwardRef(function Sidebar(
   { setSelectedUser, selectedUser, currentUser, isOpen, onClose }, ref
 ) {
@@ -130,9 +127,8 @@ const Sidebar = forwardRef(function Sidebar(
   const [activeTab, setActiveTab] = useState("dms");
   const [showCreateGroup, setShowCreateGroup] = useState(false);
 
-  // modal state
-  const [renameTarget, setRenameTarget] = useState(null);   // group object
-  const [deleteTarget, setDeleteTarget] = useState(null);   // group object
+  const [renameTarget, setRenameTarget] = useState(null);
+  const [deleteTarget, setDeleteTarget] = useState(null);
 
   const setSelectedUserRef = useRef(setSelectedUser);
   useEffect(() => { setSelectedUserRef.current = setSelectedUser; }, [setSelectedUser]);
@@ -147,12 +143,36 @@ const Sidebar = forwardRef(function Sidebar(
   useImperativeHandle(ref, () => ({ fetchUsers, fetchGroups }));
   useEffect(() => { fetchUsers(); fetchGroups(); }, []);
 
-  // ── socket listeners ───────────────────────────────────────────────────────
   useEffect(() => {
-    const handleOnlineUsers      = (u) => setOnlineUsers(u);
-    const handleMemberJoined     = () => fetchGroups();
+    const handleOnlineUsers = (u) => setOnlineUsers(u);
 
-    const handleMembersUpdated   = ({ groupId, members }) => {
+    // ── FIX: update both the groups list AND the currently open selectedUser ──
+    const handleMemberJoined = ({ groupId, members }) => {
+      // 1. Always refresh the sidebar group list
+      fetchGroups();
+
+      // 2. If this group is currently open, push new members into selectedUser
+      //    so GroupChatBox receives updated props immediately (no refresh needed)
+      if (members && members.length > 0) {
+        setSelectedUserRef.current((prev) => {
+          if (prev?.isGroup && prev._id?.toString() === groupId?.toString()) {
+            return { ...prev, members };
+          }
+          return prev;
+        });
+
+        // 3. Also update the groups state directly for instant sidebar UI update
+        setGroups((prev) =>
+          prev.map((g) =>
+            g._id?.toString() === groupId?.toString()
+              ? { ...g, members }
+              : g
+          )
+        );
+      }
+    };
+
+    const handleMembersUpdated = ({ groupId, members }) => {
       setGroups((prev) => prev.map((g) => g._id === groupId ? { ...g, members } : g));
       setSelectedUserRef.current((prev) =>
         prev?.isGroup && prev._id === groupId ? { ...prev, members } : prev
@@ -166,9 +186,8 @@ const Sidebar = forwardRef(function Sidebar(
       );
     };
 
-    const handleNewGroupInvite   = () => fetchGroups();
+    const handleNewGroupInvite = () => fetchGroups();
 
-    // 🔥 live rename from any member's screen
     const handleGroupNameUpdated = ({ groupId, name }) => {
       setGroups((prev) =>
         prev.map((g) => g._id === groupId ? { ...g, name } : g)
@@ -178,7 +197,6 @@ const Sidebar = forwardRef(function Sidebar(
       );
     };
 
-    // 🔥 live delete — remove from sidebar + close chat if open
     const handleGroupDeleted = ({ groupId }) => {
       setGroups((prev) => prev.filter((g) => g._id !== groupId));
       setSelectedUserRef.current((prev) =>
@@ -205,14 +223,11 @@ const Sidebar = forwardRef(function Sidebar(
     };
   }, []);
 
-  // ── handlers ───────────────────────────────────────────────────────────────
   const handleDisconnect = async (e, userId) => {
     e.stopPropagation();
     try { await axios.post("/users/disconnect", { userId }); fetchUsers(); } catch (err) { console.log(err); }
   };
 
-  // called after rename modal saves (optimistic update already via socket,
-  // but we also update locally so admin sees it instantly)
   const handleRenamed = (groupId, name) => {
     setGroups((prev) => prev.map((g) => g._id === groupId ? { ...g, name } : g));
     setSelectedUserRef.current((prev) =>
@@ -220,7 +235,6 @@ const Sidebar = forwardRef(function Sidebar(
     );
   };
 
-  // called after delete modal confirms
   const handleDeleted = (groupId) => {
     setGroups((prev) => prev.filter((g) => g._id !== groupId));
     setSelectedUserRef.current((prev) =>
@@ -240,7 +254,6 @@ const Sidebar = forwardRef(function Sidebar(
         <div className="fixed inset-0 bg-black/40 z-20 md:hidden backdrop-blur-sm" onClick={onClose} />
       )}
 
-      {/* ── modals ── */}
       {renameTarget && (
         <RenameModal
           group={renameTarget}
@@ -280,7 +293,6 @@ const Sidebar = forwardRef(function Sidebar(
         ${isOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"}
       `}>
 
-        {/* Header */}
         <div className="px-4 pt-5 pb-3">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2.5">
@@ -305,7 +317,6 @@ const Sidebar = forwardRef(function Sidebar(
             </div>
           </div>
 
-          {/* Search */}
           <div className="relative mb-3">
             <svg className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" strokeWidth="2.5" strokeLinecap="round">
               <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
@@ -318,7 +329,6 @@ const Sidebar = forwardRef(function Sidebar(
             />
           </div>
 
-          {/* Tabs */}
           <div className="flex gap-1 p-1 bg-gray-100 rounded-xl">
             <button
               onClick={() => setActiveTab("dms")}
@@ -331,7 +341,6 @@ const Sidebar = forwardRef(function Sidebar(
           </div>
         </div>
 
-        {/* Story-style avatar row (DMs only) */}
         {activeTab === "dms" && filteredUsers.length > 0 && (
           <div className="px-4 pb-3 overflow-x-auto flex gap-3 scrollbar-none">
             {filteredUsers.slice(0, 6).map((user) => {
@@ -350,7 +359,6 @@ const Sidebar = forwardRef(function Sidebar(
           </div>
         )}
 
-        {/* Divider + label */}
         <div className="px-4 pb-2 flex items-center justify-between">
           <span className="text-[11px] font-semibold text-gray-400 uppercase tracking-widest">
             {activeTab === "dms" ? `People · ${filteredUsers.length}` : `Groups · ${filteredGroups.length}`}
@@ -365,10 +373,8 @@ const Sidebar = forwardRef(function Sidebar(
           )}
         </div>
 
-        {/* List */}
         <div className="flex-1 overflow-y-auto px-2 pb-4 space-y-px">
 
-          {/* ── DMs ── */}
           {activeTab === "dms" && (
             <>
               {filteredUsers.map((user) => {
@@ -424,12 +430,10 @@ const Sidebar = forwardRef(function Sidebar(
             </>
           )}
 
-          {/* ── Groups ── */}
           {activeTab === "groups" && (
             <>
               {filteredGroups.map((group) => {
                 const isSelected = selectedUser?._id === group._id && selectedUser?.isGroup;
-                // currentUser._id can be string or ObjectId — normalise both sides
                 const isAdmin = group.admin?._id?.toString() === currentUser?._id?.toString()
                              || group.admin?.toString()       === currentUser?._id?.toString();
 
@@ -453,10 +457,8 @@ const Sidebar = forwardRef(function Sidebar(
                       </p>
                     </div>
 
-                    {/* Admin actions — appear on hover */}
                     {isAdmin ? (
                       <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-all duration-150 flex-shrink-0">
-                        {/* Rename */}
                         <button
                           onClick={(e) => { e.stopPropagation(); setRenameTarget(group); }}
                           className="p-1.5 rounded-lg text-gray-300 hover:text-violet-500 hover:bg-violet-50 transition-all"
@@ -467,7 +469,6 @@ const Sidebar = forwardRef(function Sidebar(
                             <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
                           </svg>
                         </button>
-                        {/* Delete */}
                         <button
                           onClick={(e) => { e.stopPropagation(); setDeleteTarget(group); }}
                           className="p-1.5 rounded-lg text-gray-300 hover:text-red-400 hover:bg-red-50 transition-all"
@@ -515,5 +516,6 @@ const Sidebar = forwardRef(function Sidebar(
 });
 
 export default Sidebar;
+
 
 
