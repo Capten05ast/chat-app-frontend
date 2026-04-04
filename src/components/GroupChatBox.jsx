@@ -62,6 +62,7 @@ function GroupChatBox({ group, currentUser, onOpenSidebar, onGroupUpdated }) {
 
   useEffect(() => { setLocalMembers(group?.members || []); }, [group?.members]);
 
+  // New group message
   useEffect(() => {
     const handler = ({ groupId, message }) => {
       if (groupId !== currentGroupIdRef.current) return;
@@ -71,6 +72,7 @@ function GroupChatBox({ group, currentUser, onOpenSidebar, onGroupUpdated }) {
     return () => socket.off("new_group_message", handler);
   }, []);
 
+  // Member removed
   useEffect(() => {
     const handler = ({ groupId, members }) => {
       if (groupId !== currentGroupIdRef.current) return;
@@ -81,17 +83,38 @@ function GroupChatBox({ group, currentUser, onOpenSidebar, onGroupUpdated }) {
     return () => socket.off("group_members_updated", handler);
   }, []);
 
-  // 🔥 FIX: listen for when someone accepts invite — updates member list live on admin's tab
+  // 🔥 FIX: Someone accepted the group invite
+  // Re-fetch members fresh from the server — avoids any string/ObjectId mismatch
   useEffect(() => {
-    const handler = ({ groupId, members }) => {
-      if (groupId !== currentGroupIdRef.current) return;
-      setLocalMembers(members);
+    const handler = async ({ groupId, members }) => {
+      console.log("[socket] group_member_joined received", groupId, "current:", currentGroupIdRef.current);
+
+      // 🔥 Compare as strings to avoid ObjectId vs string mismatch
+      if (groupId.toString() !== currentGroupIdRef.current?.toString()) return;
+
+      // Option A: use the members sent in the payload (already populated from backend)
+      if (members && members.length > 0) {
+        setLocalMembers(members);
+      } else {
+        // Option B: fallback — re-fetch from server if payload is empty for any reason
+        try {
+          const res = await axios.get(`/groups/my-groups`);
+          const updatedGroup = res.data.find((g) => g._id.toString() === groupId.toString());
+          if (updatedGroup) setLocalMembers(updatedGroup.members);
+        } catch (err) {
+          console.log("Failed to re-fetch group members:", err);
+        }
+      }
+
+      // Always tell sidebar to refresh group list too
       if (onGroupUpdated) onGroupUpdated();
     };
+
     socket.on("group_member_joined", handler);
     return () => socket.off("group_member_joined", handler);
   }, []);
 
+  // Seen receipts
   useEffect(() => {
     const handler = ({ groupId, seenBy }) => {
       if (groupId !== currentGroupIdRef.current) return;
