@@ -7,14 +7,26 @@ import axios from "../api/axios";
 const formatTime = (dateStr) =>
   dateStr ? new Date(dateStr).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "";
 
-function Message({ msg, currentUser, onDeleted }) {
-  const isMe = msg.senderId === currentUser._id;
-  const [imgLoaded, setImgLoaded] = useState(false);
-  const [showTime, setShowTime] = useState(false);
+const getAvatarGradient = (name = "") => {
+  const gradients = [
+    "from-violet-500 to-purple-600",
+    "from-rose-400 to-pink-600",
+    "from-amber-400 to-orange-500",
+    "from-emerald-400 to-teal-600",
+    "from-sky-400 to-blue-600",
+    "from-fuchsia-400 to-violet-600",
+  ];
+  let sum = 0;
+  for (let c of name) sum += c.charCodeAt(0);
+  return gradients[sum % gradients.length];
+};
+
+function GroupMessage({ msg, currentUser, groupId, onDeleted }) {
+  const isMe = msg.sender._id === currentUser._id;
   const [showMenu, setShowMenu] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
-  // Long-press for mobile (my messages only)
+  // Long-press for mobile
   const longPressTimer = useRef(null);
   const handlePressStart = () => {
     if (!isMe) return;
@@ -26,7 +38,7 @@ function Message({ msg, currentUser, onDeleted }) {
     e.stopPropagation();
     setDeleting(true);
     try {
-      await axios.delete(`/messages/${msg._id}`);
+      await axios.delete(`/group-messages/${groupId}/${msg._id}`);
       onDeleted?.(msg._id);
     } catch (err) {
       console.log(err);
@@ -37,19 +49,28 @@ function Message({ msg, currentUser, onDeleted }) {
 
   return (
     <>
-      {/* Backdrop — closes menu on click-away */}
       {showMenu && (
         <div className="fixed inset-0 z-10" onClick={() => setShowMenu(false)} />
       )}
 
       <div
-        className={`flex ${isMe ? "justify-end" : "justify-start"} px-3 sm:px-5 mb-0.5 group`}
-        onClick={() => { if (!showMenu) setShowTime((p) => !p); }}
+        className={`flex items-end gap-2 mb-1 group ${isMe ? "justify-end" : "justify-start"}`}
         onMouseLeave={() => setShowMenu(false)}
         onTouchStart={handlePressStart}
         onTouchEnd={handlePressEnd}
         onTouchMove={handlePressEnd}
       >
+        {/* Other person's avatar */}
+        {!isMe && (
+          <div className="w-7 h-7 flex-shrink-0 mb-1">
+            <div className={`w-7 h-7 rounded-[9px] bg-gradient-to-br ${getAvatarGradient(msg.sender.fullName?.firstName)} flex items-center justify-center shadow-sm`}>
+              <span className="text-white font-bold text-[10px]">
+                {msg.sender.fullName?.firstName[0].toUpperCase()}
+              </span>
+            </div>
+          </div>
+        )}
+
         <div className={`flex items-end gap-1.5 ${isMe ? "flex-row-reverse" : "flex-row"}`}>
 
           {/* ── ··· button (desktop hover, my msgs only) ── */}
@@ -73,7 +94,6 @@ function Message({ msg, currentUser, onDeleted }) {
                     onClick={handleDelete}
                     disabled={deleting}
                     className="w-full flex items-center gap-2.5 px-4 py-3 text-[13px] font-semibold text-red-500 hover:bg-red-50 transition-all disabled:opacity-50"
-                    style={{fontFamily:"inherit"}}
                   >
                     {deleting ? (
                       <div className="w-3.5 h-3.5 border-2 border-red-300 border-t-red-500 rounded-full animate-spin flex-shrink-0" />
@@ -93,59 +113,45 @@ function Message({ msg, currentUser, onDeleted }) {
           )}
 
           {/* ── Bubble ── */}
-          <div className={`flex flex-col max-w-[75%] sm:max-w-[60%] gap-0.5 ${isMe ? "items-end" : "items-start"}`}>
-
-            {msg.text && (
-              <div className={`px-4 py-2.5 text-[14px] leading-relaxed break-words transition-opacity duration-200
-                ${deleting ? "opacity-40" : "opacity-100"}
-                ${isMe
-                  ? "bg-gradient-to-br from-violet-600 to-pink-500 text-white shadow-md shadow-violet-200/40 rounded-[18px_18px_4px_18px]"
-                  : "bg-white text-zinc-900 shadow-sm border border-violet-100 rounded-[4px_18px_18px_18px]"
-                }`}
-              >
-                {msg.text}
-              </div>
+          <div className={`flex flex-col max-w-[75%] sm:max-w-[60%] ${isMe ? "items-end" : "items-start"}`}>
+            {!isMe && (
+              <span className="text-[11px] font-medium text-zinc-400 mb-1 ml-1">
+                {msg.sender.fullName?.firstName}
+              </span>
             )}
 
             {msg.image && (
-              <div className={`overflow-hidden shadow-md transition-opacity duration-200
+              <img
+                src={msg.image}
+                alt="shared"
+                onClick={() => window.open(msg.image, "_blank")}
+                className={`max-w-[180px] sm:max-w-[220px] mb-1 shadow-md cursor-pointer hover:opacity-90 transition-opacity duration-200
+                  ${deleting ? "opacity-40" : "opacity-100"}
+                  ${isMe ? "rounded-[16px_16px_4px_16px]" : "rounded-[4px_16px_16px_16px]"}`}
+              />
+            )}
+
+            {msg.message && (
+              <div className={`px-3.5 sm:px-4 py-2.5 text-[13px] sm:text-[14px] leading-relaxed shadow-sm transition-opacity duration-200
                 ${deleting ? "opacity-40" : "opacity-100"}
-                ${isMe ? "rounded-[16px_16px_4px_16px]" : "rounded-[4px_16px_16px_16px]"}`}>
-                {!imgLoaded && (
-                  <div className="w-44 h-36 sm:w-52 sm:h-44 bg-violet-50 border border-violet-100 animate-pulse flex items-center justify-center">
-                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#c4b5fd" strokeWidth="1.5">
-                      <rect x="3" y="3" width="18" height="18" rx="2"/>
-                      <circle cx="8.5" cy="8.5" r="1.5"/>
-                      <polyline points="21 15 16 10 5 21"/>
-                    </svg>
-                  </div>
-                )}
-                <img
-                  src={msg.image}
-                  alt="chat"
-                  onLoad={() => setImgLoaded(true)}
-                  onClick={(e) => { e.stopPropagation(); window.open(msg.image, "_blank"); }}
-                  className={`max-w-[176px] sm:max-w-[220px] block object-cover transition-opacity duration-300 cursor-pointer hover:opacity-90 ${imgLoaded ? "opacity-100" : "opacity-0 h-0"}`}
-                />
+                ${isMe
+                  ? "bg-gradient-to-br from-violet-600 to-pink-500 text-white rounded-[18px_18px_4px_18px]"
+                  : "bg-white text-zinc-800 border border-violet-100 rounded-[4px_18px_18px_18px]"
+                }`}>
+                {msg.message}
               </div>
             )}
 
-            <div className={`flex items-center gap-1 px-1 transition-all duration-200 ${showTime ? "opacity-100 max-h-6" : "opacity-0 max-h-0 overflow-hidden"}`}>
-              <span className="text-[10px] text-zinc-400">{formatTime(msg.createdAt)}</span>
-              {isMe && (
-                <span className={`text-[11px] font-semibold leading-none transition-colors ${msg.seen ? "text-violet-500" : "text-zinc-300"}`}>
-                  {msg.seen ? "✔✔" : "✔"}
-                </span>
-              )}
-            </div>
+            <span className="text-[10px] text-zinc-400 mt-1 px-1">{formatTime(msg.createdAt)}</span>
           </div>
-
         </div>
       </div>
     </>
   );
 }
 
-export default Message;
+export default GroupMessage;
+
+
 
 
