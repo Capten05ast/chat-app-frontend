@@ -264,7 +264,7 @@ const Sidebar = forwardRef(function Sidebar(
       `} style={{boxShadow: isOpen ? "6px 0 48px rgba(0,0,0,0.18)" : "none"}}>
 
         {/* ── HEADER ── */}
-        <div className="px-4 pt-5 pb-3.5" style={{borderBottom:"2px solid #f3f4f6"}}>
+        <div className="px-4 pt-24 pb-3.5" style={{borderBottom:"2px solid #f3f4f6"}}>
 
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-3">
