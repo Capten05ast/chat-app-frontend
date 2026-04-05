@@ -233,7 +233,7 @@ const Sidebar = forwardRef(function Sidebar(
       `}</style>
 
       {isOpen && (
-        <div className="fixed inset-0 bg-black/50 z-20 md:hidden backdrop-blur-sm" onClick={onClose}/>
+        <div className=" pt-20 fixed inset-0 bg-black/50 z-20 md:hidden backdrop-blur-sm" onClick={onClose}/>
       )}
 
       {renameTarget && <RenameModal group={renameTarget} onClose={() => setRenameTarget(null)} onRenamed={handleRenamed}/>}
