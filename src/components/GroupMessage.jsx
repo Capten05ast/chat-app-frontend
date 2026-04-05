@@ -28,7 +28,6 @@ function GroupMessage({ msg, currentUser, groupId, onDeleted, showAvatar, showNa
   const [deleting, setDeleting] = useState(false);
 
   const longPressTimer = useRef(null);
-
   const handlePressStart = () => {
     if (!isMe) return;
     longPressTimer.current = setTimeout(() => setShowMenu(true), 450);
@@ -48,7 +47,6 @@ function GroupMessage({ msg, currentUser, groupId, onDeleted, showAvatar, showNa
     setShowMenu(false);
   };
 
-  // Image src — supports both old string format and new { url, fileId } object
   const imageSrc = msg.image?.url ?? (typeof msg.image === "string" ? msg.image : null);
 
   return (
@@ -62,48 +60,58 @@ function GroupMessage({ msg, currentUser, groupId, onDeleted, showAvatar, showNa
       {showMenu && <div className="fixed inset-0 z-10" onClick={() => setShowMenu(false)}/>}
 
       <div
-        className={`gm-wrap gm-row flex items-end gap-2 mb-1.5 ${isMe ? "justify-end" : "justify-start"}`}
+        className={`gm-wrap gm-row flex items-end gap-2 mb-2 ${isMe ? "justify-end" : "justify-start"}`}
         onMouseLeave={() => setShowMenu(false)}
         onTouchStart={handlePressStart}
         onTouchEnd={handlePressEnd}
         onTouchMove={handlePressEnd}
       >
-        {/* Other person's avatar */}
+        {/* Other person avatar */}
         {!isMe && (
-          <div className="w-7 h-7 flex-shrink-0 mb-0.5">
+          <div className="w-8 h-8 flex-shrink-0 mb-0.5">
             {showAvatar && (
-              <div
-                className="w-7 h-7 rounded-xl flex items-center justify-center shadow-sm text-white font-bold text-[10px]"
-                style={{ background: getAvatarGradient(msg.sender.fullName?.firstName) }}
-              >
+              <div className="w-8 h-8 rounded-xl flex items-center justify-center text-white font-black text-[11px]"
+                style={{background: getAvatarGradient(msg.sender.fullName?.firstName), boxShadow:"0 2px 8px rgba(0,0,0,0.15)"}}>
                 {msg.sender.fullName?.firstName[0].toUpperCase()}
               </div>
             )}
           </div>
         )}
 
-        {/* Delete button (my messages only) + bubble */}
         <div className={`flex items-end gap-1.5 ${isMe ? "flex-row-reverse" : "flex-row"}`}>
 
-          {/* Delete trigger — desktop hover, mobile long press */}
+          {/* Delete button */}
           {isMe && (
             <div className="relative self-center mb-1">
               <button
                 onClick={(e) => { e.stopPropagation(); setShowMenu((p) => !p); }}
-                className="gm-delete-btn w-6 h-6 flex items-center justify-center rounded-full bg-white border border-gray-100 text-gray-400 hover:text-red-500 hover:border-red-200 shadow-sm text-sm leading-none"
+                className="gm-delete-btn w-7 h-7 flex items-center justify-center rounded-full bg-white text-gray-500 hover:text-red-500 transition-all"
+                style={{border:"1.5px solid #e5e7eb", boxShadow:"0 2px 6px rgba(0,0,0,0.08)"}}
               >
-                ⋮
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor">
+                  <circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/>
+                </svg>
               </button>
 
               {showMenu && (
-                <div className="absolute bottom-8 right-0 bg-white border border-gray-100 rounded-2xl shadow-xl overflow-hidden z-20" style={{minWidth:100}}>
+                <div className="absolute bottom-9 right-0 bg-white rounded-2xl z-20 overflow-hidden" style={{minWidth:130, boxShadow:"0 8px 30px rgba(0,0,0,0.12)", border:"1.5px solid #f3f4f6"}}>
                   <button
                     onClick={handleDelete}
                     disabled={deleting}
-                    className="w-full px-4 py-2.5 text-left text-sm font-semibold text-red-500 hover:bg-red-50 transition-all disabled:opacity-50"
+                    className="w-full flex items-center gap-2.5 px-4 py-3 text-[13px] font-bold text-red-500 hover:bg-red-50 transition-all disabled:opacity-50"
                     style={{fontFamily:"inherit"}}
                   >
-                    {deleting ? "Deleting…" : "🗑 Delete"}
+                    {deleting ? (
+                      <div className="w-3.5 h-3.5 border-2 border-red-300 border-t-red-500 rounded-full animate-spin flex-shrink-0"/>
+                    ) : (
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" className="flex-shrink-0">
+                        <polyline points="3 6 5 6 21 6"/>
+                        <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
+                        <path d="M10 11v6M14 11v6"/>
+                        <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/>
+                      </svg>
+                    )}
+                    {deleting ? "Deleting…" : "Delete"}
                   </button>
                 </div>
               )}
@@ -111,11 +119,11 @@ function GroupMessage({ msg, currentUser, groupId, onDeleted, showAvatar, showNa
           )}
 
           {/* Bubble column */}
-          <div className={`flex flex-col max-w-[75%] sm:max-w-[60%] ${isMe ? "items-end" : "items-start"}`}>
+          <div className={`flex flex-col max-w-[78%] sm:max-w-[62%] ${isMe ? "items-end" : "items-start"}`}>
 
-            {/* Sender name — only for others, only on first of a run */}
+            {/* Sender name */}
             {showName && (
-              <span className="text-[11px] font-semibold text-gray-500 mb-1 ml-1">
+              <span className="text-[12px] font-bold text-gray-600 mb-1 ml-1">
                 {msg.sender.fullName?.firstName}
               </span>
             )}
@@ -126,38 +134,42 @@ function GroupMessage({ msg, currentUser, groupId, onDeleted, showAvatar, showNa
                 src={imageSrc}
                 alt="shared"
                 onClick={() => window.open(imageSrc, "_blank")}
-                className="max-w-[200px] sm:max-w-[230px] rounded-2xl mb-1 shadow-md cursor-pointer hover:opacity-90 transition-opacity"
-                style={{ opacity: deleting ? 0.4 : 1 }}
+                className="max-w-[210px] sm:max-w-[240px] rounded-2xl mb-1 cursor-pointer hover:opacity-90 transition-opacity"
+                style={{
+                  opacity: deleting ? 0.4 : 1,
+                  boxShadow:"0 4px 16px rgba(0,0,0,0.12)",
+                  border: isMe ? "none" : "1.5px solid #e5e7eb"
+                }}
               />
             )}
 
             {/* Text bubble */}
             {msg.message && (
               <div
-                className="px-4 py-2.5 text-[13.5px] leading-relaxed shadow-sm"
+                className="px-4 py-2.5 text-[14px] leading-relaxed"
                 style={{
                   background: isMe ? "linear-gradient(135deg,#7c3aed,#ec4899)" : "#fff",
-                  color: isMe ? "#fff" : "#1f2937",
-                  border: isMe ? "none" : "1px solid #f3f4f6",
+                  color: isMe ? "#fff" : "#111827",
+                  border: isMe ? "none" : "1.5px solid #e5e7eb",
                   borderRadius: isMe ? "18px 18px 4px 18px" : "4px 18px 18px 18px",
                   fontFamily: "inherit",
+                  fontWeight: 500,
                   opacity: deleting ? 0.4 : 1,
                   transition: "opacity 0.2s",
+                  boxShadow: isMe ? "0 4px 14px rgba(124,58,237,0.3)" : "0 2px 8px rgba(0,0,0,0.06)",
                 }}
               >
                 {msg.message}
               </div>
             )}
 
-            {/* Time + seen tick */}
+            {/* Time + seen */}
             <div className={`flex items-center gap-1 mt-1 ${isMe ? "flex-row-reverse" : "flex-row"}`}>
-              <span className="text-[10px] text-gray-400">{formatTime(msg.createdAt)}</span>
+              <span className="text-[11px] font-semibold text-gray-400">{formatTime(msg.createdAt)}</span>
               {isMe && (
-                <svg
-                  width="13" height="13" viewBox="0 0 24 24" fill="none"
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
                   stroke={allMembersSeen ? "#7c3aed" : "#9ca3af"}
-                  strokeWidth="2.5" strokeLinecap="round"
-                >
+                  strokeWidth="2.5" strokeLinecap="round">
                   <polyline points="20 6 9 17 4 12"/>
                   {allMembersSeen && <polyline points="16 6 5 17 0 12"/>}
                 </svg>
@@ -171,5 +183,7 @@ function GroupMessage({ msg, currentUser, groupId, onDeleted, showAvatar, showNa
 }
 
 export default GroupMessage;
+
+
 
 

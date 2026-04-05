@@ -48,7 +48,6 @@ function ChatBox({ selectedUser, currentUser, onOpenSidebar }) {
     fetchMessages();
   }, [selectedUser]);
 
-  // ✅ receive_message — also marks as seen instantly so sender gets double tick
   useEffect(() => {
     const handleReceive = (data) => {
       if (data.senderId === selectedUser?._id || data.receiverId === selectedUser?._id) {
@@ -79,7 +78,6 @@ function ChatBox({ selectedUser, currentUser, onOpenSidebar }) {
     return () => socket.off("message_seen", handleSeen);
   }, [selectedUser, currentUser._id]);
 
-  // ✅ Real-time delete — removes message from receiver's screen too
   useEffect(() => {
     const handleMessageDeleted = ({ messageId }) => {
       setMessages((prev) => prev.filter((m) => m._id !== messageId));
@@ -112,14 +110,8 @@ function ChatBox({ selectedUser, currentUser, onOpenSidebar }) {
         const uploadRes = await axios.post("/messages/upload", formData, {
           headers: { "Content-Type": "multipart/form-data" },
         });
-        const imageData = {
-          url: uploadRes.data.url,
-          fileId: uploadRes.data.fileId,
-        };
-        const msgRes = await axios.post("/messages/send", {
-          receiverId: selectedUser._id,
-          image: imageData,
-        });
+        const imageData = { url: uploadRes.data.url, fileId: uploadRes.data.fileId };
+        const msgRes = await axios.post("/messages/send", { receiverId: selectedUser._id, image: imageData });
         setMessages((prev) => [...prev, msgRes.data.data]);
         socket.emit("send_message", msgRes.data.data);
         setSelectedImage(null);
@@ -134,7 +126,6 @@ function ChatBox({ selectedUser, currentUser, onOpenSidebar }) {
     } catch (err) { console.log(err); }
   };
 
-  // Optimistic delete — removes instantly on sender's side
   const handleDeleted = (messageId) => {
     setMessages((prev) => prev.filter((m) => m._id !== messageId));
   };
@@ -152,16 +143,16 @@ function ChatBox({ selectedUser, currentUser, onOpenSidebar }) {
     return (
       <>
         <style>{`
-          @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+          @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&display=swap');
           .cb-empty * { font-family: 'Plus Jakarta Sans', sans-serif; }
-          .cb-empty-ping { animation: cb-ping 2s ease-in-out infinite; }
-          .cb-empty-ping-2 { animation: cb-ping 2s ease-in-out infinite; animation-delay: 0.4s; }
-          @keyframes cb-ping { 0%,100% { transform: translateY(0); opacity: 0.6; } 50% { transform: translateY(-6px); opacity: 1; } }
+          @keyframes cb-float { 0%,100%{transform:translateY(0);opacity:.7} 50%{transform:translateY(-8px);opacity:1} }
+          .cb-float-1 { animation: cb-float 3s ease-in-out infinite; }
+          .cb-float-2 { animation: cb-float 3s ease-in-out infinite; animation-delay: 0.5s; }
         `}</style>
         <div className="cb-empty flex-1 flex flex-col items-center justify-center bg-white gap-5 p-6">
           <div className="relative">
-            <div className="w-24 h-24 rounded-3xl flex items-center justify-center shadow-lg" style={{background:"linear-gradient(135deg,#f5f3ff,#fdf4ff)"}}>
-              <svg width="44" height="44" viewBox="0 0 24 24" fill="none" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+            <div className="w-24 h-24 rounded-3xl flex items-center justify-center shadow-xl" style={{background:"linear-gradient(135deg,#ede9fe,#fce7f3)"}}>
+              <svg width="46" height="46" viewBox="0 0 24 24" fill="none" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
                 <defs>
                   <linearGradient id="cbg" x1="0%" y1="0%" x2="100%" y2="100%">
                     <stop offset="0%" stopColor="#7c3aed"/>
@@ -171,21 +162,21 @@ function ChatBox({ selectedUser, currentUser, onOpenSidebar }) {
                 <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" stroke="url(#cbg)"/>
               </svg>
             </div>
-            <div className="cb-empty-ping absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full" style={{background:"#7c3aed",opacity:0.5}}/>
-            <div className="cb-empty-ping-2 absolute -bottom-1.5 -left-1.5 w-3 h-3 rounded-full" style={{background:"#ec4899",opacity:0.5}}/>
+            <div className="cb-float-1 absolute -top-2 -right-2 w-5 h-5 rounded-full" style={{background:"linear-gradient(135deg,#7c3aed,#a855f7)"}}/>
+            <div className="cb-float-2 absolute -bottom-2 -left-2 w-4 h-4 rounded-full" style={{background:"linear-gradient(135deg,#ec4899,#f43f5e)"}}/>
           </div>
           <div className="text-center">
-            <p className="text-xl font-bold text-gray-900 mb-1.5">No chat selected</p>
-            <p className="text-sm text-gray-400 max-w-[200px] leading-relaxed mx-auto">
-              Pick someone from the sidebar to start a conversation
+            <p className="text-[22px] font-black text-gray-900 mb-2 tracking-tight">Your Messages</p>
+            <p className="text-[14px] text-gray-500 max-w-[200px] leading-relaxed mx-auto font-medium">
+              Pick someone from the sidebar to start chatting
             </p>
           </div>
           <button
             onClick={onOpenSidebar}
-            className="md:hidden flex items-center gap-2 px-5 py-2.5 text-white text-sm font-bold rounded-2xl shadow-lg transition-all active:scale-95"
-            style={{background:"linear-gradient(135deg,#7c3aed,#ec4899)"}}
+            className="md:hidden flex items-center gap-2.5 px-6 py-3 text-white text-[14px] font-bold rounded-2xl shadow-xl transition-all active:scale-95"
+            style={{background:"linear-gradient(135deg,#7c3aed,#ec4899)", boxShadow:"0 8px 24px rgba(124,58,237,0.35)"}}
           >
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
               <line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/>
             </svg>
             Browse People
@@ -198,93 +189,91 @@ function ChatBox({ selectedUser, currentUser, onOpenSidebar }) {
   return (
     <>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&display=swap');
         .cb-wrap * { font-family: 'Plus Jakarta Sans', sans-serif; box-sizing: border-box; }
-        .cb-messages::-webkit-scrollbar { width: 4px; }
+        .cb-messages::-webkit-scrollbar { width: 3px; }
         .cb-messages::-webkit-scrollbar-thumb { background: #e5e7eb; border-radius: 99px; }
         .cb-messages::-webkit-scrollbar-track { background: transparent; }
-        .cb-dot { width: 7px; height: 7px; border-radius: 50%; background: #d1d5db; animation: cb-bounce 1.2s ease-in-out infinite; }
+        .cb-dot { width: 7px; height: 7px; border-radius: 50%; background: #7c3aed; animation: cb-bounce 1.2s ease-in-out infinite; }
         .cb-dot:nth-child(2) { animation-delay: 0.15s; }
         .cb-dot:nth-child(3) { animation-delay: 0.3s; }
-        @keyframes cb-bounce { 0%,80%,100% { transform: translateY(0); } 40% { transform: translateY(-6px); } }
-        .cb-hbtn { transition: all 0.15s; }
-        .cb-hbtn:hover { background: #f5f3ff; color: #7c3aed; }
-        .cb-input { transition: all 0.2s; }
-        .cb-input:focus { background: #fff; box-shadow: 0 0 0 2px rgba(124,58,237,0.12); outline: none; }
-        .cb-send { transition: transform 0.15s, box-shadow 0.15s; }
+        @keyframes cb-bounce { 0%,80%,100% { transform: translateY(0); opacity:0.5; } 40% { transform: translateY(-6px); opacity:1; } }
+        .cb-hbtn:hover { background: #f5f3ff; color: #7c3aed; border-radius:12px; }
+        .cb-input:focus { background: #fff; box-shadow: 0 0 0 2.5px rgba(124,58,237,0.2); outline: none; }
         .cb-send:hover { transform: scale(1.08); }
-        .cb-send:active { transform: scale(0.94); }
+        .cb-send:active { transform: scale(0.93); }
       `}</style>
 
       <div className="cb-wrap flex-1 flex flex-col overflow-hidden bg-white min-w-0">
 
         {/* ── HEADER ── */}
-        <div className="flex items-center gap-3 px-3 sm:px-4 py-3 border-b border-gray-100 bg-white flex-shrink-0" style={{boxShadow:"0 1px 0 #f3f4f6"}}>
-          <button onClick={onOpenSidebar} className="cb-hbtn md:hidden flex-shrink-0 w-9 h-9 rounded-xl flex items-center justify-center text-gray-400 -ml-1">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+        <div className="flex items-center gap-3 px-3 sm:px-4 py-3 border-b border-gray-100 bg-white flex-shrink-0" style={{boxShadow:"0 2px 12px rgba(0,0,0,0.06)"}}>
+          <button onClick={onOpenSidebar} className="cb-hbtn md:hidden flex-shrink-0 w-10 h-10 flex items-center justify-center text-gray-600 -ml-1 transition-all">
+            <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
               <line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/>
             </svg>
           </button>
 
-          <div className="w-11 h-11 rounded-2xl flex items-center justify-center flex-shrink-0 shadow-md text-white font-bold text-lg" style={{background: avatarGradient}}>
+          <div className="w-11 h-11 rounded-2xl flex items-center justify-center flex-shrink-0 text-white font-black text-lg" style={{background: avatarGradient, boxShadow:"0 4px 12px rgba(124,58,237,0.3)"}}>
             {initials}
           </div>
 
           <div className="flex-1 min-w-0">
-            <p className="text-[16px] sm:text-[15px] font-bold text-gray-900 truncate leading-tight">
+            <p className="text-[16px] sm:text-[15px] font-black text-gray-900 truncate leading-tight tracking-tight">
               {selectedUser.fullName.firstName} {selectedUser.fullName.lastName}
             </p>
             <div className="flex items-center gap-1.5 mt-0.5">
-              <span className="w-2 h-2 rounded-full flex-shrink-0" style={{background: isTyping ? "#7c3aed" : "#10b981", animation: isTyping ? "cb-bounce 1s infinite" : "none"}}/>
-              <span className="text-[13px] sm:text-[12px] font-medium" style={{color: isTyping ? "#7c3aed" : "#9ca3af"}}>
+              <span className="w-2 h-2 rounded-full flex-shrink-0" style={{
+                background: isTyping ? "#7c3aed" : "#10b981",
+                boxShadow: isTyping ? "0 0 0 3px rgba(124,58,237,0.2)" : "0 0 0 3px rgba(16,185,129,0.2)"
+              }}/>
+              <span className="text-[12px] font-semibold" style={{color: isTyping ? "#7c3aed" : "#6b7280"}}>
                 {isTyping ? "typing..." : "Active now"}
               </span>
             </div>
           </div>
 
           <div className="flex items-center gap-0.5">
-            <button className="cb-hbtn w-10 h-10 sm:w-9 sm:h-9 rounded-xl flex items-center justify-center text-gray-400">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
+            <button className="cb-hbtn w-10 h-10 flex items-center justify-center text-gray-500 transition-all">
+              <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
                 <path d="M15.05 5A5 5 0 0 1 19 8.95M15.05 1A9 9 0 0 1 23 8.94m-1 7.98v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.72 9.72 19.79 19.79 0 0 1 1.61 1.1 2 2 0 0 1 3.6-.01h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 7.91a16 16 0 0 0 6 6l.9-.9a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 21.72 15.36z"/>
               </svg>
             </button>
-            <button className="cb-hbtn w-10 h-10 sm:w-9 sm:h-9 rounded-xl flex items-center justify-center text-gray-400">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-                <circle cx="12" cy="5" r="1.2"/><circle cx="12" cy="12" r="1.2"/><circle cx="12" cy="19" r="1.2"/>
+            <button className="cb-hbtn w-10 h-10 flex items-center justify-center text-gray-500 transition-all">
+              <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
+                <circle cx="12" cy="5" r="1.3"/><circle cx="12" cy="12" r="1.3"/><circle cx="12" cy="19" r="1.3"/>
               </svg>
             </button>
           </div>
         </div>
 
         {/* ── MESSAGES ── */}
-        <div className="cb-messages flex-1 overflow-y-auto px-1 sm:px-5 py-3 flex flex-col gap-0.5" style={{background:"#fafafa"}}>
-          <div className="flex flex-col items-center gap-2 py-4 sm:py-8 mb-1">
-            <div className="w-16 h-16 sm:w-[72px] sm:h-[72px] rounded-[20px] sm:rounded-[22px] flex items-center justify-center shadow-xl text-white font-bold text-2xl" style={{background: avatarGradient}}>
+        <div className="cb-messages flex-1 overflow-y-auto px-1 sm:px-4 py-3 flex flex-col gap-0.5" style={{background:"#f8f7ff"}}>
+
+          {/* Conversation start card */}
+          <div className="flex flex-col items-center gap-3 py-6 sm:py-10 mb-2">
+            <div className="w-20 h-20 rounded-[24px] flex items-center justify-center text-white font-black text-3xl" style={{background: avatarGradient, boxShadow:"0 8px 32px rgba(124,58,237,0.3)"}}>
               {initials}
             </div>
             <div className="text-center">
-              <p className="text-[15px] font-bold text-gray-900">{selectedUser.fullName.firstName} {selectedUser.fullName.lastName}</p>
-              <span className="inline-block mt-1.5 text-xs text-gray-400 bg-white border border-gray-100 px-3 py-1 rounded-full font-medium shadow-sm">
+              <p className="text-[16px] font-black text-gray-900 tracking-tight">{selectedUser.fullName.firstName} {selectedUser.fullName.lastName}</p>
+              <span className="inline-flex items-center gap-1.5 mt-2 text-[12px] text-gray-500 bg-white border border-gray-200 px-3 py-1.5 rounded-full font-semibold shadow-sm">
                 👋 Start of your conversation
               </span>
             </div>
           </div>
 
           {messages.map((msg) => (
-            <Message
-              key={msg._id}
-              msg={msg}
-              currentUser={currentUser}
-              onDeleted={handleDeleted}
-            />
+            <Message key={msg._id} msg={msg} currentUser={currentUser} onDeleted={handleDeleted} />
           ))}
 
+          {/* Typing indicator */}
           {isTyping && (
             <div className="flex items-end gap-2 px-2 mt-2">
-              <div className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0 shadow-sm text-white font-bold text-xs" style={{background: avatarGradient}}>
+              <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 text-white font-black text-sm" style={{background: avatarGradient, boxShadow:"0 4px 10px rgba(124,58,237,0.25)"}}>
                 {initials}
               </div>
-              <div className="flex items-center gap-1.5 bg-white border border-gray-100 shadow-sm px-4 py-3 rounded-[20px_20px_20px_5px]">
+              <div className="flex items-center gap-1.5 bg-white border border-gray-100 shadow-md px-4 py-3.5 rounded-[20px_20px_20px_5px]">
                 <span className="cb-dot"/><span className="cb-dot"/><span className="cb-dot"/>
               </div>
             </div>
@@ -294,15 +283,13 @@ function ChatBox({ selectedUser, currentUser, onOpenSidebar }) {
 
         {/* ── IMAGE PREVIEW ── */}
         {selectedImage && (
-          <div className="flex items-center gap-3 px-4 py-3 border-t border-gray-100 flex-shrink-0" style={{background:"#fdf4ff"}}>
-            <div className="relative flex-shrink-0">
-              <img src={URL.createObjectURL(selectedImage)} alt="preview" className="w-14 h-14 object-cover rounded-2xl shadow-sm" style={{border:"1.5px solid #e9d5ff"}}/>
-            </div>
+          <div className="flex items-center gap-3 px-4 py-3 border-t-2 border-violet-100 flex-shrink-0" style={{background:"linear-gradient(135deg,#fdf4ff,#f5f3ff)"}}>
+            <img src={URL.createObjectURL(selectedImage)} alt="preview" className="w-14 h-14 object-cover rounded-2xl shadow-md flex-shrink-0" style={{border:"2px solid #ddd6fe"}}/>
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-semibold text-gray-800">Image ready to send</p>
-              <p className="text-xs text-gray-400 truncate mt-0.5">{selectedImage.name}</p>
+              <p className="text-[14px] font-bold text-gray-900">Image ready to send</p>
+              <p className="text-[12px] text-gray-500 truncate mt-0.5 font-medium">{selectedImage.name}</p>
             </div>
-            <button onClick={() => setSelectedImage(null)} className="w-9 h-9 flex items-center justify-center rounded-xl bg-white text-gray-400 hover:text-red-500 hover:bg-red-50 shadow-sm transition-all flex-shrink-0" style={{border:"1px solid #f3f4f6"}}>
+            <button onClick={() => setSelectedImage(null)} className="w-9 h-9 flex items-center justify-center rounded-xl bg-white text-gray-500 hover:text-red-500 hover:bg-red-50 shadow-sm transition-all flex-shrink-0" style={{border:"1.5px solid #e5e7eb"}}>
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
                 <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
               </svg>
@@ -311,9 +298,9 @@ function ChatBox({ selectedUser, currentUser, onOpenSidebar }) {
         )}
 
         {/* ── INPUT BAR ── */}
-        <div className="flex items-center gap-2 px-3 sm:px-4 py-3 bg-white border-t border-gray-100 flex-shrink-0">
-          <label className="flex-shrink-0 w-10 h-10 sm:w-9 sm:h-9 rounded-xl bg-gray-100 text-gray-400 cursor-pointer flex items-center justify-center transition-all hover:bg-violet-50 hover:text-violet-500 active:scale-95">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
+        <div className="flex items-center gap-2.5 px-3 sm:px-4 py-3 bg-white border-t-2 border-gray-100 flex-shrink-0">
+          <label className="flex-shrink-0 w-10 h-10 rounded-2xl cursor-pointer flex items-center justify-center transition-all hover:scale-105 active:scale-95" style={{background:"linear-gradient(135deg,#ede9fe,#fce7f3)"}}>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#7c3aed" strokeWidth="2" strokeLinecap="round">
               <rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/>
             </svg>
             <input type="file" accept="image/*" onChange={handleImageUpload} className="hidden"/>
@@ -321,7 +308,7 @@ function ChatBox({ selectedUser, currentUser, onOpenSidebar }) {
 
           <input
             ref={inputRef}
-            className="cb-input flex-1 px-4 py-3 sm:py-2.5 bg-gray-100 rounded-full text-[15px] sm:text-[14px] text-gray-900 placeholder-gray-400 border-none min-w-0"
+            className="cb-input flex-1 px-4 py-3 bg-gray-100 rounded-full text-[15px] text-gray-900 placeholder-gray-400 border-none min-w-0 font-medium transition-all"
             style={{fontFamily:"inherit"}}
             value={text}
             placeholder="Message..."
@@ -330,14 +317,14 @@ function ChatBox({ selectedUser, currentUser, onOpenSidebar }) {
           />
 
           {hasInput ? (
-            <button onClick={handleSend} className="cb-send flex-shrink-0 w-10 h-10 sm:w-9 sm:h-9 rounded-full flex items-center justify-center text-white shadow-md" style={{background:"linear-gradient(135deg,#7c3aed,#ec4899)"}}>
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+            <button onClick={handleSend} className="cb-send flex-shrink-0 w-11 h-11 rounded-full flex items-center justify-center text-white transition-all" style={{background:"linear-gradient(135deg,#7c3aed,#ec4899)", boxShadow:"0 4px 16px rgba(124,58,237,0.4)"}}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
                 <line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/>
               </svg>
             </button>
           ) : (
-            <button className="flex-shrink-0 w-10 h-10 sm:w-9 sm:h-9 rounded-full bg-gray-100 text-gray-400 flex items-center justify-center transition-all hover:bg-pink-50 hover:text-pink-500 active:scale-95">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
+            <button className="flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center transition-all hover:scale-105 active:scale-95" style={{background:"linear-gradient(135deg,#fce7f3,#ffe4e6)"}}>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#ec4899" strokeWidth="2" strokeLinecap="round">
                 <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
               </svg>
             </button>
