@@ -233,7 +233,7 @@ const Sidebar = forwardRef(function Sidebar(
       `}</style>
 
       {isOpen && (
-        <div className=" pt-20 fixed inset-0 bg-black/50 z-20 md:hidden backdrop-blur-sm" onClick={onClose}/>
+        <div className="fixed inset-0 bg-black/50 z-20 md:hidden backdrop-blur-sm" onClick={onClose}/>
       )}
 
       {renameTarget && <RenameModal group={renameTarget} onClose={() => setRenameTarget(null)} onRenamed={handleRenamed}/>}
@@ -264,7 +264,7 @@ const Sidebar = forwardRef(function Sidebar(
       `} style={{boxShadow: isOpen ? "6px 0 48px rgba(0,0,0,0.18)" : "none"}}>
 
         {/* ── HEADER ── */}
-        <div className="px-4 pt-24 pb-3.5" style={{borderBottom:"2px solid #f3f4f6"}}>
+        <div className="px-4 pt-24 md:pt-0 pb-3.5" style={{borderBottom:"2px solid #f3f4f6"}}>
 
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-3">
