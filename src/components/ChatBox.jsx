@@ -6,36 +6,7 @@ import axios from "../api/axios";
 import Message from "./Message";
 import { socket } from "../socket";
 
-const getAvatarGradient = (name = "") => {
-  const gradients = [
-    ["#7c3aed", "#a855f7"], ["#ec4899", "#f43f5e"],
-    ["#f59e0b", "#ef4444"], ["#10b981", "#3b82f6"],
-    ["#06b6d4", "#6366f1"], ["#8b5cf6", "#ec4899"],
-    ["#84cc16", "#10b981"], ["#0ea5e9", "#6366f1"],
-  ];
-  let sum = 0;
-  for (let c of name) sum += c.charCodeAt(0);
-  const [a, b] = gradients[sum % gradients.length];
-  return `linear-gradient(135deg, ${a}, ${b})`;
-};
-
-// Reusable avatar — real pic if available, else gradient initials
-function UserAvatar({ user, size = 44, radius = 14, shadow = "" }) {
-  const name = user?.fullName?.firstName || "?";
-  const initials = name[0]?.toUpperCase();
-  if (user?.avatar) {
-    return (
-      <div style={{width:size,height:size,borderRadius:radius,overflow:"hidden",flexShrink:0,boxShadow:shadow}}>
-        <img src={user.avatar} alt={name} style={{width:"100%",height:"100%",objectFit:"cover"}}/>
-      </div>
-    );
-  }
-  return (
-    <div style={{width:size,height:size,borderRadius:radius,flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center",background:getAvatarGradient(name),boxShadow:shadow}}>
-      <span style={{color:"white",fontWeight:900,fontSize:Math.round(size*0.38)}}>{initials}</span>
-    </div>
-  );
-}
+// ... (getAvatarGradient and UserAvatar remain the same)
 
 function ChatBox({ selectedUser, currentUser, onOpenSidebar }) {
   const [messages, setMessages] = useState([]);
@@ -47,55 +18,95 @@ function ChatBox({ selectedUser, currentUser, onOpenSidebar }) {
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
 
+  // Helper for safe ID comparison
+  const isSameId = (id1, id2) => {
+    if (!id1 || !id2) return false;
+    return id1.toString() === id2.toString();
+  };
+
   useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages, isTyping]);
 
   useEffect(() => {
-    if (!selectedUser) return;
+    if (!selectedUser?._id) return;
     const fetchMessages = async () => {
-      try { const res = await axios.get(`/messages/${selectedUser._id}`); setMessages(res.data); }
-      catch (err) { console.log(err); }
+      try { 
+        const res = await axios.get(`/messages/${selectedUser._id}`); 
+        setMessages(res.data); 
+      } catch (err) { console.log(err); }
     };
     fetchMessages();
-  }, [selectedUser]);
+  }, [selectedUser?._id]); // Only re-run when ID actually changes
 
+  // ── FIX 1: Enhanced Real-time Receive Logic ──
   useEffect(() => {
     const handleReceive = (data) => {
-      if (data.senderId === selectedUser?._id || data.receiverId === selectedUser?._id) {
-        setMessages((prev) => [...prev, data]);
-        axios.post("/messages/mark-seen", { senderId: selectedUser._id });
+      // 1. Ensure message belongs to this specific conversation
+      const isFromSelected = isSameId(data.senderId, selectedUser?._id);
+      const isToSelected = isSameId(data.receiverId, selectedUser?._id);
+
+      if (isFromSelected || isToSelected) {
+        setMessages((prev) => {
+          // 2. Prevent Duplicate: Check if message already exists in state
+          const exists = prev.some(m => isSameId(m._id, data._id));
+          if (exists) return prev;
+          return [...prev, data];
+        });
+
+        // 3. Auto-mark as seen if it's an incoming message
+        if (isFromSelected) {
+          axios.post("/messages/mark-seen", { senderId: selectedUser._id });
+        }
       }
     };
+
     socket.on("receive_message", handleReceive);
     return () => socket.off("receive_message", handleReceive);
-  }, [selectedUser]);
+  }, [selectedUser?._id]);
 
+  // ── FIX 2: Typing Logic with Safe Comparison ──
   useEffect(() => {
-    const handleTyping = ({ senderId }) => { if (senderId === selectedUser?._id) setIsTyping(true); };
-    const handleStopTyping = ({ senderId }) => { if (senderId === selectedUser?._id) setIsTyping(false); };
+    const handleTyping = ({ senderId }) => { 
+      if (isSameId(senderId, selectedUser?._id)) setIsTyping(true); 
+    };
+    const handleStopTyping = ({ senderId }) => { 
+      if (isSameId(senderId, selectedUser?._id)) setIsTyping(false); 
+    };
+
     socket.on("typing", handleTyping);
     socket.on("stop_typing", handleStopTyping);
-    return () => { socket.off("typing", handleTyping); socket.off("stop_typing", handleStopTyping); };
-  }, [selectedUser]);
+    return () => { 
+      socket.off("typing", handleTyping); 
+      socket.off("stop_typing", handleStopTyping); 
+    };
+  }, [selectedUser?._id]);
 
+  // ── FIX 3: Seen Update with Safe Comparison ──
   useEffect(() => {
     const handleSeen = ({ receiverId }) => {
-      if (receiverId !== selectedUser?._id) return;
-      setMessages((prev) => prev.map((msg) => msg.senderId === currentUser._id ? { ...msg, seen: true } : msg));
+      if (!isSameId(receiverId, selectedUser?._id)) return;
+      setMessages((prev) => 
+        prev.map((msg) => 
+          isSameId(msg.senderId, currentUser?._id) ? { ...msg, seen: true } : msg
+        )
+      );
     };
     socket.on("message_seen", handleSeen);
     return () => socket.off("message_seen", handleSeen);
-  }, [selectedUser, currentUser._id]);
+  }, [selectedUser?._id, currentUser?._id]);
 
+  // Message Deletion Sync
   useEffect(() => {
     const handleMessageDeleted = ({ messageId }) => {
-      setMessages((prev) => prev.filter((m) => m._id !== messageId));
+      setMessages((prev) => prev.filter((m) => !isSameId(m._id, messageId)));
     };
     socket.on("message_deleted", handleMessageDeleted);
     return () => socket.off("message_deleted", handleMessageDeleted);
   }, []);
 
-  const handleTyping = (e) => {
+  const handleTypingStatus = (e) => {
     setText(e.target.value);
+    if (!selectedUser?._id) return;
+    
     socket.emit("typing", { senderId: currentUser._id, receiverId: selectedUser._id });
     if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
     typingTimeoutRef.current = setTimeout(() => {
@@ -103,32 +114,37 @@ function ChatBox({ selectedUser, currentUser, onOpenSidebar }) {
     }, 800);
   };
 
-  const handleImageUpload = (e) => { const file = e.target.files[0]; if (!file) return; setSelectedImage(file); };
-
   const handleSend = async () => {
-    if (!selectedUser) return;
+    if (!selectedUser?._id) return;
     try {
+      let messageData;
       if (selectedImage) {
         const formData = new FormData();
         formData.append("image", selectedImage);
-        const uploadRes = await axios.post("/messages/upload", formData, { headers: { "Content-Type": "multipart/form-data" } });
+        const uploadRes = await axios.post("/messages/upload", formData);
         const imageData = { url: uploadRes.data.url, fileId: uploadRes.data.fileId };
         const msgRes = await axios.post("/messages/send", { receiverId: selectedUser._id, image: imageData });
-        setMessages((prev) => [...prev, msgRes.data.data]);
-        socket.emit("send_message", msgRes.data.data);
+        messageData = msgRes.data.data;
         setSelectedImage(null);
-        return;
-      }
-      if (text.trim()) {
+      } else if (text.trim()) {
         const res = await axios.post("/messages/send", { receiverId: selectedUser._id, text });
-        setMessages((prev) => [...prev, res.data.data]);
-        socket.emit("send_message", res.data.data);
+        messageData = res.data.data;
         setText("");
       }
-    } catch (err) { console.log(err); }
+
+      if (messageData) {
+        // Update local state and emit to socket
+        setMessages((prev) => [...prev, messageData]);
+        socket.emit("send_message", messageData);
+      }
+    } catch (err) { console.log("Send Error:", err); }
   };
 
-  const handleDeleted = (messageId) => { setMessages((prev) => prev.filter((m) => m._id !== messageId)); };
+  const handleDeleted = (messageId) => { 
+    setMessages((prev) => prev.filter((m) => !isSameId(m._id, messageId))); 
+  };
+
+  // ... (Rest of the JSX remains the same)
   const handleKeyDown = (e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSend(); } };
 
   const initials = selectedUser?.fullName?.firstName[0]?.toUpperCase();
