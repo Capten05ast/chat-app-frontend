@@ -14,6 +14,7 @@ function Message({ msg, currentUser, onDeleted }) {
   const [showMenu, setShowMenu] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
+  // Long-press for mobile
   const longPressTimer = useRef(null);
   const handlePressStart = () => {
     if (!isMe) return;
@@ -39,82 +40,185 @@ function Message({ msg, currentUser, onDeleted }) {
 
   return (
     <>
+      <style>{`
+        @keyframes menuPop {
+          from { opacity:0; transform:scale(0.9) translateY(6px); }
+          to   { opacity:1; transform:scale(1) translateY(0); }
+        }
+        .msg-menu-anim { animation: menuPop 0.18s cubic-bezier(0.34,1.5,0.64,1) both; }
+
+        @keyframes bubbleIn {
+          from { opacity:0; transform:scale(0.92) translateY(6px); }
+          to   { opacity:1; transform:scale(1) translateY(0); }
+        }
+        .bubble-anim { animation: bubbleIn 0.22s cubic-bezier(0.34,1.3,0.64,1) both; }
+
+        .msg-dots-btn {
+          opacity:0;
+          width:30px; height:30px;
+          display:flex; align-items:center; justify-content:center;
+          border-radius:50%;
+          background:white;
+          border:1px solid #f3f4f6;
+          box-shadow:0 2px 10px rgba(0,0,0,0.1);
+          color:#9ca3af;
+          cursor:pointer;
+          transition:all 0.15s;
+          flex-shrink:0;
+        }
+        .msg-dots-btn:hover { color:#ef4444; border-color:#fecaca; box-shadow:0 2px 14px rgba(239,68,68,0.2); }
+        .msg-dots-btn:active { transform:scale(0.92); }
+        .group:hover .msg-dots-btn { opacity:1; }
+
+        .msg-delete-btn {
+          width:100%;
+          display:flex; align-items:center; gap:10px;
+          padding:14px 18px;
+          background:none; border:none; cursor:pointer;
+          color:#ef4444;
+          font-size:14px; font-weight:700;
+          font-family:inherit;
+          transition:background 0.12s;
+        }
+        .msg-delete-btn:hover { background:#fef2f2; }
+        .msg-delete-btn:disabled { opacity:0.5; cursor:not-allowed; }
+      `}</style>
+
       {showMenu && (
-        <div className="fixed inset-0 z-10" onClick={() => setShowMenu(false)} />
+        <div style={{position:"fixed", inset:0, zIndex:10}} onClick={() => setShowMenu(false)} />
       )}
 
       <div
-        className={`flex ${isMe ? "justify-end" : "justify-start"} px-3 sm:px-5 mb-0.5 group`}
-        onClick={() => { if (!showMenu) setShowTime((p) => !p); }}
+        style={{
+          display:"flex",
+          justifyContent: isMe ? "flex-end" : "flex-start",
+          padding:"2px 16px",
+          marginBottom:2,
+        }}
+        className="group"
+        onClick={() => { if (!showMenu) setShowTime(p => !p); }}
         onMouseLeave={() => setShowMenu(false)}
         onTouchStart={handlePressStart}
         onTouchEnd={handlePressEnd}
         onTouchMove={handlePressEnd}
       >
-        <div className={`flex items-end gap-1.5 ${isMe ? "flex-row-reverse" : "flex-row"}`}>
+        <div style={{
+          display:"flex",
+          alignItems:"flex-end",
+          gap:8,
+          flexDirection: isMe ? "row-reverse" : "row",
+        }}>
 
-          {/* ··· delete button — desktop hover only, my messages only */}
+          {/* ── ··· delete button ── */}
           {isMe && (
-            <div className="relative self-center mb-1 flex-shrink-0">
+            <div style={{position:"relative", alignSelf:"center", marginBottom:4, flexShrink:0}}>
               <button
-                onClick={(e) => { e.stopPropagation(); setShowMenu((p) => !p); }}
-                className="opacity-0 group-hover:opacity-100 focus:opacity-100 w-7 h-7 flex items-center justify-center rounded-full bg-white border border-gray-100 shadow-sm text-gray-400 hover:text-red-500 hover:border-red-200 transition-all active:scale-95"
+                className="msg-dots-btn"
+                onClick={e => { e.stopPropagation(); setShowMenu(p => !p); }}
               >
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
                   <circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/>
                 </svg>
               </button>
 
               {showMenu && (
-                <div
-                  className="absolute bottom-9 right-0 z-20 bg-white border border-gray-100 rounded-2xl overflow-hidden min-w-[130px]"
-                  style={{boxShadow:"0 8px 30px rgba(0,0,0,0.10)"}}
-                >
+                <div className="msg-menu-anim" style={{
+                  position:"absolute",
+                  bottom:"calc(100% + 8px)",
+                  right:0,
+                  zIndex:20,
+                  background:"white",
+                  borderRadius:16,
+                  overflow:"hidden",
+                  minWidth:150,
+                  boxShadow:"0 12px 40px rgba(0,0,0,0.14), 0 0 0 1px rgba(0,0,0,0.06)",
+                }}>
                   <button
+                    className="msg-delete-btn"
                     onClick={handleDelete}
                     disabled={deleting}
-                    className="w-full flex items-center gap-2.5 px-4 py-3 text-[13px] font-semibold text-red-500 hover:bg-red-50 transition-all disabled:opacity-50"
-                    style={{fontFamily:"inherit"}}
                   >
                     {deleting ? (
-                      <div className="w-3.5 h-3.5 border-2 border-red-300 border-t-red-500 rounded-full animate-spin flex-shrink-0" />
+                      <div style={{
+                        width:15, height:15,
+                        border:"2.5px solid #fca5a5",
+                        borderTopColor:"#ef4444",
+                        borderRadius:"50%",
+                        animation:"spin 0.7s linear infinite",
+                        flexShrink:0,
+                      }}/>
                     ) : (
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" className="flex-shrink-0">
+                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" style={{flexShrink:0}}>
                         <polyline points="3 6 5 6 21 6"/>
                         <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
                         <path d="M10 11v6M14 11v6"/>
                         <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/>
                       </svg>
                     )}
-                    {deleting ? "Deleting…" : "Delete"}
+                    {deleting ? "Deleting…" : "Delete message"}
                   </button>
                 </div>
               )}
             </div>
           )}
 
-          {/* Bubble */}
-          <div className={`flex flex-col max-w-[75%] sm:max-w-[60%] gap-0.5 ${isMe ? "items-end" : "items-start"}`}>
+          {/* ── Bubble content ── */}
+          <div style={{
+            display:"flex",
+            flexDirection:"column",
+            maxWidth:"min(78%, 320px)",
+            gap:3,
+            alignItems: isMe ? "flex-end" : "flex-start",
+          }}>
 
+            {/* Text bubble */}
             {msg.text && (
-              <div className={`px-4 py-2.5 text-[15px] sm:text-[14px] leading-relaxed break-words transition-opacity duration-200
-                ${deleting ? "opacity-40" : "opacity-100"}
-                ${isMe
-                  ? "bg-gradient-to-br from-violet-600 to-pink-500 text-white shadow-md shadow-violet-200/40 rounded-[18px_18px_4px_18px]"
-                  : "bg-white text-zinc-900 shadow-sm border border-violet-100 rounded-[4px_18px_18px_18px]"
-                }`}
+              <div
+                className="bubble-anim"
+                style={{
+                  padding:"11px 16px",
+                  fontSize:16,
+                  lineHeight:1.5,
+                  fontWeight:500,
+                  letterSpacing:"-0.1px",
+                  wordBreak:"break-word",
+                  transition:"opacity 0.2s, transform 0.2s",
+                  opacity: deleting ? 0.35 : 1,
+                  transform: deleting ? "scale(0.97)" : "scale(1)",
+                  ...(isMe ? {
+                    background:"linear-gradient(135deg, #6d28d9, #db2777)",
+                    color:"white",
+                    borderRadius:"20px 20px 5px 20px",
+                    boxShadow:"0 4px 16px rgba(109,40,217,0.35)",
+                  } : {
+                    background:"white",
+                    color:"#1f2937",
+                    borderRadius:"5px 20px 20px 20px",
+                    boxShadow:"0 2px 12px rgba(0,0,0,0.08)",
+                    border:"1px solid #f3f4f6",
+                  }),
+                }}
               >
                 {msg.text}
               </div>
             )}
 
+            {/* Image */}
             {imageSrc && (
-              <div className={`overflow-hidden shadow-md transition-opacity duration-200
-                ${deleting ? "opacity-40" : "opacity-100"}
-                ${isMe ? "rounded-[16px_16px_4px_16px]" : "rounded-[4px_16px_16px_16px]"}`}>
+              <div style={{
+                overflow:"hidden",
+                borderRadius: isMe ? "16px 16px 4px 16px" : "4px 16px 16px 16px",
+                boxShadow:"0 4px 20px rgba(0,0,0,0.15)",
+                transition:"opacity 0.2s",
+                opacity: deleting ? 0.35 : 1,
+              }}>
                 {!imgLoaded && (
-                  <div className="w-44 h-36 sm:w-52 sm:h-44 bg-violet-50 border border-violet-100 animate-pulse flex items-center justify-center">
-                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#c4b5fd" strokeWidth="1.5">
+                  <div style={{
+                    width:180, height:144,
+                    background:"linear-gradient(135deg,#f5f3ff,#fdf4ff)",
+                    display:"flex", alignItems:"center", justifyContent:"center",
+                  }}>
+                    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#c4b5fd" strokeWidth="1.5">
                       <rect x="3" y="3" width="18" height="18" rx="2"/>
                       <circle cx="8.5" cy="8.5" r="1.5"/>
                       <polyline points="21 15 16 10 5 21"/>
@@ -125,29 +229,55 @@ function Message({ msg, currentUser, onDeleted }) {
                   src={imageSrc}
                   alt="chat"
                   onLoad={() => setImgLoaded(true)}
-                  onClick={(e) => { e.stopPropagation(); window.open(imageSrc, "_blank"); }}
-                  className={`max-w-[176px] sm:max-w-[220px] block object-cover transition-opacity duration-300 cursor-pointer hover:opacity-90 ${imgLoaded ? "opacity-100" : "opacity-0 h-0"}`}
+                  onClick={e => { e.stopPropagation(); window.open(imageSrc, "_blank"); }}
+                  style={{
+                    maxWidth:220,
+                    display:"block",
+                    objectFit:"cover",
+                    cursor:"pointer",
+                    transition:"opacity 0.3s",
+                    opacity: imgLoaded ? 1 : 0,
+                    height: imgLoaded ? "auto" : 0,
+                  }}
                 />
               </div>
             )}
 
-            <div className={`flex items-center gap-1 px-1 transition-all duration-200 ${showTime ? "opacity-100 max-h-6" : "opacity-0 max-h-0 overflow-hidden"}`}>
-              <span className="text-[11px] sm:text-[10px] text-zinc-400">{formatTime(msg.createdAt)}</span>
+            {/* Timestamp + seen */}
+            <div style={{
+              display:"flex",
+              alignItems:"center",
+              gap:5,
+              padding:"0 4px",
+              overflow:"hidden",
+              maxHeight: showTime ? 24 : 0,
+              opacity: showTime ? 1 : 0,
+              transition:"all 0.2s ease",
+            }}>
+              <span style={{fontSize:12, color:"#9ca3af", fontWeight:600, whiteSpace:"nowrap"}}>
+                {formatTime(msg.createdAt)}
+              </span>
               {isMe && (
-                <span className={`text-[12px] sm:text-[11px] font-semibold leading-none transition-colors ${msg.seen ? "text-violet-500" : "text-zinc-300"}`}>
+                <span style={{
+                  fontSize:13, fontWeight:800, lineHeight:1,
+                  color: msg.seen ? "#7c3aed" : "#d1d5db",
+                  transition:"color 0.3s",
+                }}>
                   {msg.seen ? "✔✔" : "✔"}
                 </span>
               )}
             </div>
           </div>
-
         </div>
       </div>
+
+      <style>{`@keyframes spin { to { transform:rotate(360deg); } }`}</style>
     </>
   );
 }
 
 export default Message;
+
 
 
 
