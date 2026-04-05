@@ -62,7 +62,7 @@ function Home({ user, setUser }) {
 
   const showToast = (message, type = "success") => {
     setToast({ message, type });
-    setTimeout(() => setToast(null), 3000);
+    setTimeout(() => setToast(null), 3500);
   };
 
   const handleLogout = async () => {
@@ -89,7 +89,7 @@ function Home({ user, setUser }) {
   const handleAccept = async (groupId) => {
     try {
       await axios.post("/groups/accept", { groupId });
-      showToast("Joined group successfully! 🎉");
+      showToast("Joined group! 🎉");
       await Promise.all([fetchPendingInvites(), sidebarRef.current?.fetchGroups()]);
       setShowInvites(false);
     } catch (err) {
@@ -110,254 +110,528 @@ function Home({ user, setUser }) {
   const initials = user.fullName.firstName[0]?.toUpperCase();
 
   return (
-    <div className="h-screen flex flex-col overflow-hidden bg-white">
+    <>
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&display=swap');
+        * { font-family: 'Plus Jakarta Sans', sans-serif; box-sizing: border-box; }
 
-      {/* ── TOAST ── */}
-      {toast && (
-        <div className={`fixed top-4 left-1/2 -translate-x-1/2 z-50 px-5 py-3 rounded-2xl shadow-xl text-sm font-bold flex items-center gap-2.5 transition-all duration-300 whitespace-nowrap
-          ${toast.type === "success" ? "bg-zinc-900 text-white" : "bg-red-500 text-white"}`}
-        >
-          {toast.type === "success"
-            ? <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round"><polyline points="20 6 9 17 4 12"/></svg>
-            : <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-          }
-          {toast.message}
-        </div>
-      )}
+        /* ── Toast ── */
+        @keyframes toastIn {
+          from { opacity: 0; transform: translateX(-50%) translateY(-12px) scale(0.95); }
+          to   { opacity: 1; transform: translateX(-50%) translateY(0)      scale(1); }
+        }
+        .toast-anim { animation: toastIn 0.25s cubic-bezier(0.34,1.56,0.64,1) both; }
 
-      {/* ── NAVBAR ── */}
-      <header className="bg-gradient-to-r from-violet-600 via-violet-500 to-pink-500 flex-shrink-0"
-        style={{boxShadow:"0 2px 20px rgba(124,58,237,0.35)"}}>
-        <div className="flex items-center gap-3 px-3 sm:px-4 py-2.5">
+        /* ── Navbar input focus glow ── */
+        .nav-input:focus {
+          background: rgba(255,255,255,0.28) !important;
+          border-color: rgba(255,255,255,0.6) !important;
+          box-shadow: 0 0 0 3px rgba(255,255,255,0.15);
+          outline: none;
+        }
 
-          {/* Avatar pill */}
-          <button
-            onClick={() => setShowProfile(true)}
-            className="flex items-center gap-2 flex-shrink-0 group"
-          >
-            <div className="w-9 h-9 rounded-[11px] bg-white/25 border-2 border-white/40 group-hover:border-white/70 flex items-center justify-center transition-all"
-              style={{boxShadow:"0 2px 8px rgba(0,0,0,0.15)"}}>
-              <span className="text-white font-black text-sm">{initials}</span>
-            </div>
-            <div className="hidden sm:block text-left">
-              <p className="text-white font-black text-[14px] leading-tight tracking-tight">{user.fullName.firstName}</p>
-              <p className="text-white/70 text-[11px] leading-none font-medium">Welcome back 👋</p>
-            </div>
-          </button>
+        /* ── Bell badge pulse ── */
+        @keyframes badgePulse {
+          0%,100% { box-shadow: 0 0 0 0 rgba(239,68,68,0.5); }
+          50%      { box-shadow: 0 0 0 5px rgba(239,68,68,0); }
+        }
+        .badge-pulse { animation: badgePulse 2s infinite; }
 
-          {/* Center */}
-          <div className="flex-1 flex items-center justify-center">
+        /* ── Invite dropdown ── */
+        @keyframes dropIn {
+          from { opacity: 0; transform: translateY(-8px) scale(0.97); }
+          to   { opacity: 1; transform: translateY(0)    scale(1); }
+        }
+        .drop-anim { animation: dropIn 0.18s cubic-bezier(0.34,1.4,0.64,1) both; }
 
-            {/* Mobile brand */}
-            <div className="flex sm:hidden items-center gap-2">
-              <div className="w-7 h-7 rounded-[8px] bg-white/25 border border-white/30 flex items-center justify-center">
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="white">
-                  <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/>
-                </svg>
+        /* ── Mobile connect overlay ── */
+        @keyframes slideDown {
+          from { opacity: 0; transform: translateY(-100%); }
+          to   { opacity: 1; transform: translateY(0); }
+        }
+        .connect-overlay { animation: slideDown 0.2s ease both; }
+
+        /* ── Nav icon buttons ── */
+        .nav-icon-btn {
+          width: 38px; height: 38px;
+          display: flex; align-items: center; justify-content: center;
+          border-radius: 12px;
+          background: rgba(255,255,255,0.15);
+          border: 1.5px solid rgba(255,255,255,0.25);
+          color: white;
+          cursor: pointer;
+          transition: all 0.15s;
+          flex-shrink: 0;
+        }
+        .nav-icon-btn:hover { background: rgba(255,255,255,0.28); border-color: rgba(255,255,255,0.45); transform: translateY(-1px); }
+        .nav-icon-btn:active { transform: scale(0.93); }
+
+        /* ── Mobile ── */
+        @media (max-width: 640px) {
+          .nav-brand-desktop { display: none !important; }
+          .nav-connect-desktop { display: none !important; }
+        }
+        @media (min-width: 641px) {
+          .nav-brand-mobile { display: none !important; }
+          .nav-connect-mobile { display: none !important; }
+        }
+      `}</style>
+
+      <div style={{height:"100vh", display:"flex", flexDirection:"column", overflow:"hidden", background:"#f8f7ff"}}>
+
+        {/* ── TOAST ── */}
+        {toast && (
+          <div className="toast-anim" style={{
+            position:"fixed", top:20, left:"50%", transform:"translateX(-50%)",
+            zIndex:9999,
+            display:"flex", alignItems:"center", gap:10,
+            padding:"12px 20px",
+            borderRadius:16,
+            fontSize:14, fontWeight:800,
+            whiteSpace:"nowrap",
+            boxShadow:"0 8px 32px rgba(0,0,0,0.18)",
+            background: toast.type === "success" ? "#0f0f0f" : "#ef4444",
+            color: "white",
+          }}>
+            {toast.type === "success"
+              ? <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round"><polyline points="20 6 9 17 4 12"/></svg>
+              : <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            }
+            {toast.message}
+          </div>
+        )}
+
+        {/* ── NAVBAR ── */}
+        <header style={{
+          background:"linear-gradient(135deg, #6d28d9 0%, #7c3aed 40%, #db2777 100%)",
+          flexShrink:0,
+          boxShadow:"0 4px 24px rgba(109,40,217,0.4), 0 1px 0 rgba(255,255,255,0.1) inset",
+          position:"relative",
+          zIndex:40,
+        }}>
+          {/* subtle texture overlay */}
+          <div style={{
+            position:"absolute", inset:0, pointerEvents:"none",
+            background:"radial-gradient(ellipse at 20% 50%, rgba(255,255,255,0.08) 0%, transparent 60%), radial-gradient(ellipse at 80% 50%, rgba(255,255,255,0.06) 0%, transparent 60%)",
+          }}/>
+
+          <div style={{
+            display:"flex", alignItems:"center", gap:12,
+            padding:"10px 16px",
+            position:"relative", zIndex:1,
+          }}>
+
+            {/* ── LEFT: Avatar ── */}
+            <button
+              onClick={() => setShowProfile(true)}
+              style={{
+                display:"flex", alignItems:"center", gap:10,
+                flexShrink:0, background:"none", border:"none", cursor:"pointer",
+                padding:"4px 10px 4px 4px",
+                borderRadius:14,
+                transition:"background 0.15s",
+              }}
+              onMouseEnter={e => e.currentTarget.style.background="rgba(255,255,255,0.12)"}
+              onMouseLeave={e => e.currentTarget.style.background="transparent"}
+            >
+              {/* Avatar circle */}
+              <div style={{
+                width:40, height:40,
+                borderRadius:13,
+                background:"rgba(255,255,255,0.22)",
+                border:"2px solid rgba(255,255,255,0.45)",
+                display:"flex", alignItems:"center", justifyContent:"center",
+                boxShadow:"0 2px 10px rgba(0,0,0,0.2)",
+                flexShrink:0,
+              }}>
+                <span style={{color:"white", fontWeight:900, fontSize:16}}>{initials}</span>
               </div>
-              <span className="text-white font-black text-[17px] tracking-tight">Insta<span className="text-pink-200">Dopamine</span></span>
-            </div>
+              {/* Name — desktop only */}
+              <div style={{display:"none"}} className="nav-brand-desktop" id="nav-name-block">
+                <p style={{color:"white", fontWeight:900, fontSize:14, lineHeight:1.2, letterSpacing:"-0.3px", margin:0}}>{user.fullName.firstName}</p>
+                <p style={{color:"rgba(255,255,255,0.65)", fontWeight:600, fontSize:11, margin:0}}>My Profile</p>
+              </div>
+            </button>
 
-            {/* Desktop: brand + connect */}
-            <div className="hidden sm:flex items-center gap-2 w-full max-w-sm">
-              <div className="hidden md:flex items-center gap-1.5 flex-shrink-0">
-                <div className="w-6 h-6 rounded-lg bg-white/25 border border-white/25 flex items-center justify-center">
-                  <svg width="11" height="11" viewBox="0 0 24 24" fill="white">
+            {/* ── CENTER ── */}
+            <div style={{flex:1, display:"flex", alignItems:"center", justifyContent:"center"}}>
+
+              {/* Mobile brand */}
+              <div className="nav-brand-mobile" style={{display:"flex", alignItems:"center", gap:8}}>
+                <div style={{
+                  width:30, height:30, borderRadius:9,
+                  background:"rgba(255,255,255,0.22)",
+                  border:"1.5px solid rgba(255,255,255,0.3)",
+                  display:"flex", alignItems:"center", justifyContent:"center",
+                }}>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="white">
                     <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/>
                   </svg>
                 </div>
-                <span className="text-white font-black text-[14px] tracking-tight whitespace-nowrap">
-                  Insta<span className="text-pink-200">Dopamine</span>
+                <span style={{color:"white", fontWeight:900, fontSize:18, letterSpacing:"-0.5px"}}>
+                  Insta<span style={{color:"#fbcfe8"}}>Dopamine</span>
                 </span>
               </div>
-              <div className="hidden md:block w-px h-5 bg-white/30 flex-shrink-0" />
-              <div className="relative flex-1">
-                <svg className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.7)" strokeWidth="2.5" strokeLinecap="round">
-                  <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
-                  <polyline points="22,6 12,13 2,6"/>
-                </svg>
-                <input
-                  value={connectEmail}
-                  onChange={(e) => setConnectEmail(e.target.value)}
-                  onKeyDown={(e) => e.key === "Enter" && handleConnect()}
-                  placeholder="Connect by email..."
-                  className="w-full pl-8 pr-3 py-2 bg-white/20 border border-white/30 rounded-xl text-sm text-white placeholder-white/60 outline-none focus:bg-white/30 focus:border-white/50 transition-all font-medium"
-                />
-              </div>
-              <button
-                onClick={handleConnect}
-                className="flex items-center gap-1.5 px-3 py-2 bg-white text-violet-600 text-sm font-black rounded-xl transition-all active:scale-95 flex-shrink-0 hover:bg-violet-50"
-                style={{boxShadow:"0 2px 8px rgba(0,0,0,0.15)"}}
-              >
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-                Add
-              </button>
-            </div>
-          </div>
 
-          {/* Right actions */}
-          <div className="flex items-center gap-1.5 flex-shrink-0">
+              {/* Desktop: brand + connect input */}
+              <div className="nav-connect-desktop" style={{display:"flex", alignItems:"center", gap:10, width:"100%", maxWidth:480}}>
+                {/* Brand */}
+                <div style={{display:"flex", alignItems:"center", gap:8, flexShrink:0}}>
+                  <div style={{
+                    width:28, height:28, borderRadius:8,
+                    background:"rgba(255,255,255,0.22)",
+                    border:"1.5px solid rgba(255,255,255,0.3)",
+                    display:"flex", alignItems:"center", justifyContent:"center",
+                  }}>
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="white">
+                      <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/>
+                    </svg>
+                  </div>
+                  <span style={{color:"white", fontWeight:900, fontSize:15, letterSpacing:"-0.4px", whiteSpace:"nowrap"}}>
+                    Insta<span style={{color:"#fbcfe8"}}>Dopamine</span>
+                  </span>
+                </div>
 
-            {/* Mobile connect */}
-            <div className="sm:hidden">
-              {showConnectInput && (
-                <div className="fixed inset-x-0 top-0 z-50 bg-gradient-to-r from-violet-600 to-pink-500 px-3 py-2.5 flex items-center gap-2 shadow-xl">
+                {/* Divider */}
+                <div style={{width:1, height:22, background:"rgba(255,255,255,0.25)", flexShrink:0}}/>
+
+                {/* Connect input */}
+                <div style={{flex:1, position:"relative"}}>
+                  <svg style={{position:"absolute", left:12, top:"50%", transform:"translateY(-50%)", pointerEvents:"none"}}
+                    width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.65)" strokeWidth="2.5" strokeLinecap="round">
+                    <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
+                    <polyline points="22,6 12,13 2,6"/>
+                  </svg>
                   <input
+                    className="nav-input"
                     value={connectEmail}
                     onChange={(e) => setConnectEmail(e.target.value)}
-                    onKeyDown={(e) => { if (e.key === "Enter") handleConnect(); }}
-                    placeholder="Enter email to connect..."
-                    autoFocus
-                    className="flex-1 px-3 py-2.5 bg-white/20 border border-white/30 rounded-xl text-sm text-white placeholder-white/60 outline-none focus:bg-white/30 font-medium"
+                    onKeyDown={(e) => e.key === "Enter" && handleConnect()}
+                    placeholder="Connect by email..."
+                    style={{
+                      width:"100%",
+                      padding:"9px 12px 9px 34px",
+                      background:"rgba(255,255,255,0.15)",
+                      border:"1.5px solid rgba(255,255,255,0.25)",
+                      borderRadius:12,
+                      color:"white",
+                      fontSize:14, fontWeight:600,
+                      fontFamily:"inherit",
+                      transition:"all 0.2s",
+                    }}
                   />
-                  <button onClick={handleConnect} className="px-3 py-2.5 bg-white text-violet-600 text-sm font-black rounded-xl active:scale-95 flex-shrink-0">
-                    Add
-                  </button>
-                  <button onClick={() => setShowConnectInput(false)} className="p-2 text-white/80">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-                  </button>
                 </div>
-              )}
-              <button
-                onClick={() => setShowConnectInput(true)}
-                className="w-9 h-9 flex items-center justify-center rounded-xl bg-white/20 border border-white/30 text-white transition-all active:scale-95"
-              >
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
-                  <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/>
-                </svg>
-              </button>
+
+                {/* Add button */}
+                <button
+                  onClick={handleConnect}
+                  style={{
+                    display:"flex", alignItems:"center", gap:6,
+                    padding:"9px 16px",
+                    background:"white",
+                    color:"#7c3aed",
+                    border:"none", borderRadius:12,
+                    fontSize:13, fontWeight:900,
+                    cursor:"pointer", flexShrink:0,
+                    boxShadow:"0 2px 12px rgba(0,0,0,0.2)",
+                    transition:"all 0.15s",
+                    fontFamily:"inherit",
+                  }}
+                  onMouseEnter={e => { e.currentTarget.style.transform="translateY(-1px)"; e.currentTarget.style.boxShadow="0 4px 16px rgba(0,0,0,0.25)"; }}
+                  onMouseLeave={e => { e.currentTarget.style.transform="none"; e.currentTarget.style.boxShadow="0 2px 12px rgba(0,0,0,0.2)"; }}
+                >
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round">
+                    <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+                  </svg>
+                  Add
+                </button>
+              </div>
             </div>
 
-            {/* Bell */}
-            <div className="relative">
-              <button
-                onClick={() => setShowInvites(!showInvites)}
-                className={`relative w-9 h-9 flex items-center justify-center rounded-xl border text-white transition-all active:scale-95
-                  ${showInvites ? "bg-white/30 border-white/50" : "bg-white/20 border-white/30"}`}
-              >
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
-                  <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
-                  <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
-                </svg>
-                {pendingInvites.length > 0 && (
-                  <span className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-red-500 text-white text-[10px] font-black rounded-full flex items-center justify-center border-2 border-white">
-                    {pendingInvites.length}
-                  </span>
-                )}
-              </button>
+            {/* ── RIGHT: Actions ── */}
+            <div style={{display:"flex", alignItems:"center", gap:8, flexShrink:0}}>
 
-              {showInvites && (
-                <div className="absolute right-0 top-12 w-[320px] sm:w-80 bg-white rounded-2xl z-50 overflow-hidden"
-                  style={{boxShadow:"0 20px 60px rgba(0,0,0,0.15), 0 0 0 1px rgba(0,0,0,0.06)"}}>
-                  <div className="px-4 py-3.5 border-b border-gray-100 flex items-center justify-between">
-                    <span className="text-sm font-black text-gray-900">Group Invites</span>
-                    {pendingInvites.length > 0 && (
-                      <span className="text-[11px] font-bold text-white bg-violet-600 px-2.5 py-1 rounded-full">
-                        {pendingInvites.length} pending
-                      </span>
+              {/* Mobile connect button */}
+              <div className="nav-connect-mobile">
+                {showConnectInput && (
+                  <div className="connect-overlay" style={{
+                    position:"fixed", inset:"0 0 auto 0", zIndex:9999,
+                    background:"linear-gradient(135deg, #6d28d9, #db2777)",
+                    padding:"12px 16px",
+                    display:"flex", alignItems:"center", gap:8,
+                    boxShadow:"0 4px 24px rgba(0,0,0,0.25)",
+                  }}>
+                    <input
+                      className="nav-input"
+                      value={connectEmail}
+                      onChange={(e) => setConnectEmail(e.target.value)}
+                      onKeyDown={(e) => { if (e.key === "Enter") handleConnect(); }}
+                      placeholder="Enter email to connect..."
+                      autoFocus
+                      style={{
+                        flex:1, padding:"10px 14px",
+                        background:"rgba(255,255,255,0.18)",
+                        border:"1.5px solid rgba(255,255,255,0.3)",
+                        borderRadius:12, color:"white",
+                        fontSize:15, fontWeight:600,
+                        fontFamily:"inherit",
+                      }}
+                    />
+                    <button
+                      onClick={handleConnect}
+                      style={{
+                        padding:"10px 18px", background:"white", color:"#7c3aed",
+                        border:"none", borderRadius:12, fontSize:14, fontWeight:900,
+                        cursor:"pointer", flexShrink:0, fontFamily:"inherit",
+                      }}
+                    >Add</button>
+                    <button
+                      onClick={() => setShowConnectInput(false)}
+                      style={{background:"none", border:"none", color:"rgba(255,255,255,0.8)", cursor:"pointer", padding:6}}
+                    >
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                        <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                      </svg>
+                    </button>
+                  </div>
+                )}
+                <button className="nav-icon-btn" onClick={() => setShowConnectInput(true)}>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                    <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
+                    <polyline points="22,6 12,13 2,6"/>
+                  </svg>
+                </button>
+              </div>
+
+              {/* Bell */}
+              <div style={{position:"relative"}}>
+                <button
+                  className="nav-icon-btn"
+                  onClick={() => setShowInvites(!showInvites)}
+                  style={{
+                    background: showInvites ? "rgba(255,255,255,0.3)" : undefined,
+                    borderColor: showInvites ? "rgba(255,255,255,0.5)" : undefined,
+                  }}
+                >
+                  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                    <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+                    <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+                  </svg>
+                  {pendingInvites.length > 0 && (
+                    <span className="badge-pulse" style={{
+                      position:"absolute", top:-6, right:-6,
+                      minWidth:20, height:20,
+                      background:"#ef4444",
+                      color:"white", fontSize:10, fontWeight:900,
+                      borderRadius:10,
+                      display:"flex", alignItems:"center", justifyContent:"center",
+                      border:"2.5px solid white",
+                      padding:"0 4px",
+                    }}>
+                      {pendingInvites.length}
+                    </span>
+                  )}
+                </button>
+
+                {/* Invites dropdown */}
+                {showInvites && (
+                  <div className="drop-anim" style={{
+                    position:"absolute", right:0, top:"calc(100% + 10px)",
+                    width:340, maxWidth:"calc(100vw - 32px)",
+                    background:"white",
+                    borderRadius:20,
+                    boxShadow:"0 20px 60px rgba(0,0,0,0.15), 0 0 0 1px rgba(0,0,0,0.06)",
+                    overflow:"hidden",
+                    zIndex:999,
+                  }}>
+                    {/* Header */}
+                    <div style={{
+                      padding:"16px 20px",
+                      borderBottom:"1px solid #f3f4f6",
+                      display:"flex", alignItems:"center", justifyContent:"space-between",
+                    }}>
+                      <div>
+                        <p style={{margin:0, fontSize:15, fontWeight:900, color:"#0f0f0f"}}>Group Invites</p>
+                        {pendingInvites.length > 0 && (
+                          <p style={{margin:0, fontSize:12, color:"#7c3aed", fontWeight:700, marginTop:2}}>
+                            {pendingInvites.length} pending
+                          </p>
+                        )}
+                      </div>
+                      {pendingInvites.length > 0 && (
+                        <span style={{
+                          background:"linear-gradient(135deg,#7c3aed,#ec4899)",
+                          color:"white", fontSize:11, fontWeight:900,
+                          padding:"4px 10px", borderRadius:20,
+                        }}>
+                          {pendingInvites.length} new
+                        </span>
+                      )}
+                    </div>
+
+                    {pendingInvites.length === 0 ? (
+                      <div style={{padding:"40px 20px", textAlign:"center"}}>
+                        <div style={{
+                          width:52, height:52,
+                          background:"linear-gradient(135deg,#f5f3ff,#fdf4ff)",
+                          borderRadius:16,
+                          display:"flex", alignItems:"center", justifyContent:"center",
+                          margin:"0 auto 12px",
+                        }}>
+                          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#7c3aed" strokeWidth="1.8" strokeLinecap="round">
+                            <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+                            <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+                          </svg>
+                        </div>
+                        <p style={{margin:0, fontSize:14, fontWeight:800, color:"#374151"}}>All caught up!</p>
+                        <p style={{margin:"4px 0 0", fontSize:12, color:"#9ca3af", fontWeight:600}}>No pending invites right now</p>
+                      </div>
+                    ) : (
+                      <div style={{maxHeight:300, overflowY:"auto"}}>
+                        {pendingInvites.map((group, idx) => (
+                          <div key={group._id} style={{
+                            padding:"14px 20px",
+                            display:"flex", alignItems:"center", gap:12,
+                            borderBottom: idx < pendingInvites.length - 1 ? "1px solid #f9fafb" : "none",
+                            transition:"background 0.12s",
+                          }}
+                          onMouseEnter={e => e.currentTarget.style.background="#fafafa"}
+                          onMouseLeave={e => e.currentTarget.style.background="transparent"}
+                          >
+                            <div style={{
+                              width:44, height:44,
+                              borderRadius:14,
+                              background:"linear-gradient(135deg,#7c3aed,#ec4899)",
+                              display:"flex", alignItems:"center", justifyContent:"center",
+                              flexShrink:0,
+                              boxShadow:"0 4px 12px rgba(124,58,237,0.3)",
+                              fontSize:18, fontWeight:900, color:"white",
+                            }}>
+                              {group.name[0].toUpperCase()}
+                            </div>
+                            <div style={{flex:1, minWidth:0}}>
+                              <p style={{margin:0, fontSize:14, fontWeight:900, color:"#0f0f0f", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap"}}>
+                                {group.name}
+                              </p>
+                              <p style={{margin:"2px 0 0", fontSize:12, color:"#6b7280", fontWeight:600}}>
+                                from {group.admin.fullName.firstName}
+                              </p>
+                            </div>
+                            <div style={{display:"flex", gap:6, flexShrink:0}}>
+                              <button
+                                onClick={() => handleAccept(group._id)}
+                                style={{
+                                  padding:"7px 14px",
+                                  background:"linear-gradient(135deg,#7c3aed,#ec4899)",
+                                  color:"white", border:"none", borderRadius:10,
+                                  fontSize:12, fontWeight:800, cursor:"pointer",
+                                  fontFamily:"inherit",
+                                  boxShadow:"0 2px 8px rgba(124,58,237,0.35)",
+                                  transition:"all 0.15s",
+                                }}
+                                onMouseEnter={e => e.currentTarget.style.opacity="0.88"}
+                                onMouseLeave={e => e.currentTarget.style.opacity="1"}
+                              >Accept</button>
+                              <button
+                                onClick={() => handleDecline(group._id)}
+                                style={{
+                                  padding:"7px 12px",
+                                  background:"#f3f4f6", color:"#6b7280",
+                                  border:"none", borderRadius:10,
+                                  fontSize:12, fontWeight:800, cursor:"pointer",
+                                  fontFamily:"inherit",
+                                  transition:"all 0.15s",
+                                }}
+                                onMouseEnter={e => { e.currentTarget.style.background="#fee2e2"; e.currentTarget.style.color="#ef4444"; }}
+                                onMouseLeave={e => { e.currentTarget.style.background="#f3f4f6"; e.currentTarget.style.color="#6b7280"; }}
+                              >Decline</button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
                     )}
                   </div>
-                  {pendingInvites.length === 0 ? (
-                    <div className="px-4 py-10 text-center">
-                      <div className="w-12 h-12 bg-violet-50 rounded-2xl flex items-center justify-center mx-auto mb-3">
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#7c3aed" strokeWidth="1.8" strokeLinecap="round">
-                          <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/>
-                        </svg>
-                      </div>
-                      <p className="text-sm font-bold text-gray-700">All caught up!</p>
-                      <p className="text-xs text-gray-400 mt-1 font-medium">No pending invites right now</p>
-                    </div>
-                  ) : (
-                    <div className="max-h-72 overflow-y-auto divide-y divide-gray-50">
-                      {pendingInvites.map((group) => (
-                        <div key={group._id} className="px-4 py-3.5 flex items-center gap-3 hover:bg-gray-50 transition-all">
-                          <div className="w-10 h-10 rounded-[13px] bg-gradient-to-br from-violet-500 to-pink-500 flex items-center justify-center flex-shrink-0"
-                            style={{boxShadow:"0 4px 12px rgba(124,58,237,0.3)"}}>
-                            <span className="text-white font-black text-sm">{group.name[0].toUpperCase()}</span>
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm font-black text-gray-900 truncate">{group.name}</p>
-                            <p className="text-xs text-gray-500 font-medium mt-0.5">from {group.admin.fullName.firstName}</p>
-                          </div>
-                          <div className="flex items-center gap-1.5 flex-shrink-0">
-                            <button onClick={() => handleAccept(group._id)}
-                              className="px-3 py-1.5 bg-violet-600 hover:bg-violet-700 text-white text-xs font-bold rounded-lg transition-all active:scale-95">
-                              Accept
-                            </button>
-                            <button onClick={() => handleDecline(group._id)}
-                              className="px-3 py-1.5 bg-gray-100 hover:bg-red-50 text-gray-600 hover:text-red-500 text-xs font-bold rounded-lg transition-all">
-                              Decline
-                            </button>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              )}
+                )}
+              </div>
+
+              {/* Logout */}
+              <button
+                className="nav-icon-btn"
+                onClick={handleLogout}
+                title="Logout"
+                onMouseEnter={e => { e.currentTarget.style.background="rgba(239,68,68,0.35)"; e.currentTarget.style.borderColor="rgba(239,68,68,0.4)"; }}
+                onMouseLeave={e => { e.currentTarget.style.background="rgba(255,255,255,0.15)"; e.currentTarget.style.borderColor="rgba(255,255,255,0.25)"; }}
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                  <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+                  <polyline points="16 17 21 12 16 7"/>
+                  <line x1="21" y1="12" x2="9" y2="12"/>
+                </svg>
+              </button>
             </div>
-
-            {/* Logout */}
-            <button
-              onClick={handleLogout}
-              className="w-9 h-9 flex items-center justify-center rounded-xl bg-white/20 border border-white/30 text-white hover:bg-red-500/40 transition-all active:scale-95"
-              title="Logout"
-            >
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
-                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
-                <polyline points="16 17 21 12 16 7"/>
-                <line x1="21" y1="12" x2="9" y2="12"/>
-              </svg>
-            </button>
           </div>
-        </div>
-      </header>
 
-      {/* ── MAIN ── */}
-      <div className="flex flex-1 overflow-hidden relative">
-        <Sidebar
-          ref={sidebarRef}
-          currentUser={user}
-          setSelectedUser={setSelectedUser}
-          selectedUser={selectedUser}
-          isOpen={sidebarOpen}
-          onClose={() => setSidebarOpen(false)}
-        />
+          {/* Bottom accent line */}
+          <div style={{height:1, background:"linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent)"}}/>
+        </header>
 
-        {selectedUser?.isGroup ? (
-          <GroupChatBox
-            group={selectedUser}
+        {/* ── MAIN CONTENT ── */}
+        <div style={{display:"flex", flex:1, overflow:"hidden", position:"relative"}}>
+          <Sidebar
+            ref={sidebarRef}
             currentUser={user}
-            onOpenSidebar={() => setSidebarOpen(true)}
-            onGroupUpdated={() => {
-              sidebarRef.current?.fetchUsers();
-              sidebarRef.current?.fetchGroups();
-            }}
-          />
-        ) : (
-          <ChatBox
+            setSelectedUser={setSelectedUser}
             selectedUser={selectedUser}
-            currentUser={user}
-            onOpenSidebar={() => setSidebarOpen(true)}
+            isOpen={sidebarOpen}
+            onClose={() => setSidebarOpen(false)}
+          />
+
+          {selectedUser?.isGroup ? (
+            <GroupChatBox
+              group={selectedUser}
+              currentUser={user}
+              onOpenSidebar={() => setSidebarOpen(true)}
+              onGroupUpdated={() => {
+                sidebarRef.current?.fetchUsers();
+                sidebarRef.current?.fetchGroups();
+              }}
+            />
+          ) : (
+            <ChatBox
+              selectedUser={selectedUser}
+              currentUser={user}
+              onOpenSidebar={() => setSidebarOpen(true)}
+            />
+          )}
+        </div>
+
+        {/* Profile Panel */}
+        {showProfile && (
+          <ProfilePanel
+            user={user}
+            onClose={() => setShowProfile(false)}
+            onUpdated={(updatedUser) => {
+              setUser(updatedUser);
+              setShowProfile(false);
+              showToast("Profile updated! ✅");
+            }}
           />
         )}
       </div>
 
-      {showProfile && (
-        <ProfilePanel
-          user={user}
-          onClose={() => setShowProfile(false)}
-          onUpdated={(updatedUser) => {
-            setUser(updatedUser);
-            setShowProfile(false);
-            showToast("Profile updated! ✅");
-          }}
-        />
-      )}
-    </div>
+      {/* Desktop: show name block */}
+      <style>{`
+        @media (min-width: 641px) {
+          #nav-name-block { display: block !important; }
+          .nav-brand-desktop { display: flex !important; }
+          .nav-connect-desktop { display: flex !important; }
+        }
+      `}</style>
+    </>
   );
 }
 
 export default Home;
+
 
 
