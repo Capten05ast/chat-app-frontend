@@ -11,3 +11,5 @@ export const socket = io("https://chat-app-backend-gieg.onrender.com", {
   withCredentials: true,
   autoConnect: false,
 });
+
+

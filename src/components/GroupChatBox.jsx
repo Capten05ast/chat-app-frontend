@@ -18,9 +18,9 @@ const formatDate = (dateStr) => {
 
 const getAvatarGradient = (name = "") => {
   const gradients = [
-    ["#7c3aed", "#a855f7"], ["#ec4899", "#f43f5e"],
-    ["#f59e0b", "#ef4444"], ["#10b981", "#3b82f6"],
-    ["#06b6d4", "#6366f1"], ["#8b5cf6", "#ec4899"],
+    ["#7c3aed","#a855f7"],["#ec4899","#f43f5e"],
+    ["#f59e0b","#ef4444"],["#10b981","#3b82f6"],
+    ["#06b6d4","#6366f1"],["#8b5cf6","#ec4899"],
   ];
   let sum = 0;
   for (let c of name) sum += c.charCodeAt(0);
@@ -34,14 +34,14 @@ function UserAvatar({ user, size = 36, radius = 12 }) {
   const initials = name[0]?.toUpperCase();
   if (user?.avatar) {
     return (
-      <div style={{ width: size, height: size, borderRadius: radius, overflow: "hidden", flexShrink: 0 }}>
-        <img src={user.avatar} alt={name} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+      <div style={{width:size,height:size,borderRadius:radius,overflow:"hidden",flexShrink:0}}>
+        <img src={user.avatar} alt={name} style={{width:"100%",height:"100%",objectFit:"cover"}}/>
       </div>
     );
   }
   return (
-    <div style={{ width: size, height: size, borderRadius: radius, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", background: getAvatarGradient(name), boxShadow: "0 2px 8px rgba(0,0,0,0.12)" }}>
-      <span style={{ color: "white", fontWeight: 900, fontSize: Math.round(size * 0.36) }}>{initials}</span>
+    <div style={{width:size,height:size,borderRadius:radius,flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center",background:getAvatarGradient(name),boxShadow:"0 2px 8px rgba(0,0,0,0.12)"}}>
+      <span style={{color:"white",fontWeight:900,fontSize:Math.round(size*0.36)}}>{initials}</span>
     </div>
   );
 }
@@ -72,10 +72,9 @@ function GroupChatBox({ group, currentUser, onOpenSidebar, onGroupUpdated }) {
     setShowMembers(false);
   }, [group?._id]);
 
-  // ✅ FIXED SOCKET LISTENER
   useEffect(() => {
     const handler = ({ groupId, message }) => {
-      if (groupId?.toString() !== currentGroupIdRef.current?.toString()) return;
+      if (groupId !== currentGroupIdRef.current) return;
       setMessages((prev) => [...prev, message]);
     };
     socket.on("new_group_message", handler);
@@ -84,7 +83,7 @@ function GroupChatBox({ group, currentUser, onOpenSidebar, onGroupUpdated }) {
 
   useEffect(() => {
     const handler = ({ groupId, members }) => {
-      if (groupId?.toString() !== currentGroupIdRef.current?.toString()) return;
+      if (groupId !== currentGroupIdRef.current) return;
       setLocalMembers(members);
       if (onGroupUpdated) onGroupUpdated();
     };
@@ -102,40 +101,29 @@ function GroupChatBox({ group, currentUser, onOpenSidebar, onGroupUpdated }) {
     return () => socket.off("group_member_joined", handler);
   }, []);
 
-  // ✅ FIXED SEEN LOGIC
   useEffect(() => {
     const handler = ({ groupId, seenBy }) => {
-      if (groupId?.toString() !== currentGroupIdRef.current?.toString()) return;
-
-      setMessages((prev) =>
-        prev.map((msg) => {
-          const alreadySeen = msg.seenBy?.some(
-            (id) => id.toString() === seenBy.toString()
-          );
-          if (alreadySeen) return msg;
-          return { ...msg, seenBy: [...(msg.seenBy || []), seenBy] };
-        })
-      );
+      if (groupId !== currentGroupIdRef.current) return;
+      setMessages((prev) => prev.map((msg) => {
+        const alreadySeen = msg.seenBy?.some((id) => id.toString() === seenBy.toString());
+        if (alreadySeen) return msg;
+        return { ...msg, seenBy: [...(msg.seenBy || []), seenBy] };
+      }));
     };
-
     socket.on("group_messages_seen", handler);
     return () => socket.off("group_messages_seen", handler);
   }, []);
 
-  // ✅ FIXED DELETE LOGIC
   useEffect(() => {
     const handler = ({ groupId, messageId }) => {
-      if (groupId?.toString() !== currentGroupIdRef.current?.toString()) return;
-
-      setMessages((prev) =>
-        prev.filter((m) => m._id !== messageId.toString())
-      );
+      if (groupId !== currentGroupIdRef.current) return;
+      setMessages((prev) => prev.filter((m) => m._id !== messageId.toString()));
     };
-
     socket.on("group_message_deleted", handler);
     return () => socket.off("group_message_deleted", handler);
   }, []);
 
+  // ✅ Update member avatars in real time when they change their pic
   useEffect(() => {
     const handler = ({ userId, avatar }) => {
       setLocalMembers((prev) => prev.map((m) => {
@@ -180,7 +168,6 @@ function GroupChatBox({ group, currentUser, onOpenSidebar, onGroupUpdated }) {
 
   const clearImage = () => { setSelectedImage(null); setImagePreview(null); if (fileRef.current) fileRef.current.value = ""; };
 
-  // ✅ FIXED SEND (with Optimistic UI update)
   const handleSend = async () => {
     if (!text.trim() && !selectedImage) return;
     try {
@@ -192,18 +179,9 @@ function GroupChatBox({ group, currentUser, onOpenSidebar, onGroupUpdated }) {
         imageData = { url: uploadRes.data.url, fileId: uploadRes.data.fileId };
         clearImage();
       }
-
-      const res = await axios.post(`/group-messages/${group._id}`, { 
-        message: text, 
-        image: imageData 
-      });
-
-      // 🔥 instant update (optimistic UI)
-      setMessages((prev) => [...prev, res.data]);
+      await axios.post(`/group-messages/${group._id}`, { message: text, image: imageData });
       setText("");
-    } catch (err) { 
-      console.log(err); 
-    }
+    } catch (err) { console.log(err); }
   };
 
   const handleRemoveMember = async (memberId) => {
@@ -251,6 +229,7 @@ function GroupChatBox({ group, currentUser, onOpenSidebar, onGroupUpdated }) {
       `}</style>
 
       <div className="gcb-wrap flex-1 flex flex-col h-full overflow-hidden bg-white">
+
         {/* Header */}
         <div className="flex items-center gap-3 px-3 sm:px-4 py-3 bg-white border-b border-gray-100 flex-shrink-0" style={{boxShadow:"0 2px 12px rgba(0,0,0,0.06)"}}>
           <button onClick={onOpenSidebar} className="gcb-hbtn md:hidden flex-shrink-0 w-10 h-10 flex items-center justify-center text-gray-600 -ml-1">
@@ -268,6 +247,7 @@ function GroupChatBox({ group, currentUser, onOpenSidebar, onGroupUpdated }) {
 
         {/* Body */}
         <div className="flex flex-1 overflow-hidden relative">
+
           {/* Messages */}
           <div className="gcb-messages flex-1 overflow-y-auto px-1 sm:px-5 py-3 space-y-0.5" style={{background:"#f8f7ff"}}>
             {loading ? (
@@ -292,8 +272,8 @@ function GroupChatBox({ group, currentUser, onOpenSidebar, onGroupUpdated }) {
                     <div className="flex-1 h-px bg-violet-100"/>
                   </div>
                   {msgs.map((msg, idx) => {
-                    const isMe = msg.sender?._id === currentUser._id;
-                    const showAvatar = !isMe && (idx === 0 || msgs[idx-1]?.sender?._id !== msg.sender?._id);
+                    const isMe = msg.sender._id === currentUser._id;
+                    const showAvatar = !isMe && (idx === 0 || msgs[idx-1]?.sender._id !== msg.sender._id);
                     const allMembersSeen = localMembers.every((m) => {
                       const memberId = typeof m === "object" ? m._id.toString() : m.toString();
                       return msg.seenBy?.some((s) => s.toString() === memberId);
@@ -308,11 +288,12 @@ function GroupChatBox({ group, currentUser, onOpenSidebar, onGroupUpdated }) {
             <div ref={bottomRef}/>
           </div>
 
-          {/* Members panel */}
+          {/* Members panel — NOW WITH REAL AVATARS */}
           {showMembers && (
             <>
               <div className="md:hidden absolute inset-0 bg-black/30 z-10 backdrop-blur-sm" onClick={()=>setShowMembers(false)}/>
               <div className="gcb-panel-anim absolute right-0 top-0 bottom-0 z-20 md:relative md:z-auto w-[285px] sm:w-[272px] bg-white border-l-2 border-violet-50 flex flex-col shadow-2xl md:shadow-none">
+
                 <div className="px-4 py-4 border-b-2 border-violet-50 flex items-center justify-between flex-shrink-0">
                   <span className="text-[15px] font-black text-gray-900 tracking-tight">Members · {localMembers.length}</span>
                   <div className="flex items-center gap-1.5">
@@ -328,7 +309,7 @@ function GroupChatBox({ group, currentUser, onOpenSidebar, onGroupUpdated }) {
                   </div>
                 </div>
 
-                {/* Invite list */}
+                {/* Invite list — real avatars */}
                 {showInviteList && (
                   <div className="border-b-2 border-violet-50 flex-shrink-0" style={{background:"#faf5ff"}}>
                     <p className="text-[11px] font-black text-violet-600 uppercase tracking-widest px-4 pt-3 pb-2">Your connections</p>
@@ -348,7 +329,7 @@ function GroupChatBox({ group, currentUser, onOpenSidebar, onGroupUpdated }) {
                   </div>
                 )}
 
-                {/* Members list */}
+                {/* Members list — real avatars */}
                 <div className="gcb-panel flex-1 overflow-y-auto px-2 py-2 space-y-0.5">
                   {localMembers.map((member) => {
                     const m = typeof member === "object" ? member : { _id: member };
@@ -409,5 +390,6 @@ function GroupChatBox({ group, currentUser, onOpenSidebar, onGroupUpdated }) {
 }
 
 export default GroupChatBox;
+
 
 
