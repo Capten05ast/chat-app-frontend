@@ -20,13 +20,28 @@ function Home({ user, setUser }) {
   const [showProfile, setShowProfile] = useState(false);
   const sidebarRef = useRef(null);
 
+  // ✅ THE CORE FIX:
+  // 1. socket.js now has autoConnect:false so it doesn't connect before user exists
+  // 2. We emit "join" INSIDE the "connect" event handler, not after socket.connect()
+  //    This guarantees "join" only fires once the connection is fully established
+  // 3. On unmount (logout), we remove the listener AND disconnect cleanly
   useEffect(() => {
-    if (user?._id) {
-      socket.connect();
+    if (!user?._id) return;
+
+    const handleConnect = () => {
       socket.emit("join", user._id);
-    }
-    return () => socket.disconnect();
-  }, [user]);
+    };
+
+    // Register the connect handler BEFORE calling connect()
+    // so if the socket connects instantly, we don't miss the event
+    socket.on("connect", handleConnect);
+    socket.connect();
+
+    return () => {
+      socket.off("connect", handleConnect);
+      socket.disconnect();
+    };
+  }, [user._id]);
 
   useEffect(() => {
     fetchPendingInvites();
@@ -53,17 +68,12 @@ function Home({ user, setUser }) {
     return () => socket.off("connection_removed", handleConnectionRemoved);
   }, []);
 
-  // ✅ Real-time avatar update — when someone updates their pic,
-  // update it everywhere: sidebar users list + open chat if it's their chat
   useEffect(() => {
     const handleProfilePicUpdated = ({ userId, avatar }) => {
-      // If it's the current user's own avatar, update the user state
       if (userId === user._id) {
         setUser((prev) => ({ ...prev, avatar }));
       }
-      // Tell sidebar to refresh its users list
       sidebarRef.current?.fetchUsers();
-      // If this person's chat is currently open, update selectedUser too
       setSelectedUser((prev) => {
         if (prev && !prev.isGroup && prev._id === userId) {
           return { ...prev, avatar };
@@ -226,59 +236,38 @@ function Home({ user, setUser }) {
           boxShadow:"0 4px 28px rgba(109,40,217,0.45), 0 1px 0 rgba(255,255,255,0.12) inset",
           position:"relative", zIndex:40,
         }}>
-          <div style={{
-            position:"absolute", inset:0, pointerEvents:"none",
-            background:"radial-gradient(ellipse at 15% 50%, rgba(255,255,255,0.1) 0%, transparent 55%), radial-gradient(ellipse at 85% 50%, rgba(255,255,255,0.07) 0%, transparent 55%)",
-          }}/>
+          <div style={{position:"absolute",inset:0,pointerEvents:"none",background:"radial-gradient(ellipse at 15% 50%, rgba(255,255,255,0.1) 0%, transparent 55%), radial-gradient(ellipse at 85% 50%, rgba(255,255,255,0.07) 0%, transparent 55%)"}}/>
 
           <div style={{display:"flex", alignItems:"center", gap:10, padding:"11px 16px", position:"relative", zIndex:1}}>
 
-            {/* ── Avatar + name — NOW SHOWS REAL PROFILE PIC ── */}
+            {/* Avatar + name */}
             <button
               onClick={() => setShowProfile(true)}
-              style={{
-                display:"flex", alignItems:"center", gap:10,
-                flexShrink:0, background:"none", border:"none", cursor:"pointer",
-                padding:"3px 10px 3px 3px", borderRadius:14,
-                transition:"background 0.15s",
-              }}
+              style={{display:"flex",alignItems:"center",gap:10,flexShrink:0,background:"none",border:"none",cursor:"pointer",padding:"3px 10px 3px 3px",borderRadius:14,transition:"background 0.15s"}}
               onMouseEnter={e => e.currentTarget.style.background="rgba(255,255,255,0.13)"}
               onMouseLeave={e => e.currentTarget.style.background="transparent"}
             >
-              {/* Avatar — real pic if available, else initials */}
-              <div style={{
-                width:42, height:42, borderRadius:14,
-                background: user.avatar ? "transparent" : "linear-gradient(135deg,rgba(255,255,255,0.3),rgba(255,255,255,0.15))",
-                border:"2px solid rgba(255,255,255,0.5)",
-                display:"flex", alignItems:"center", justifyContent:"center",
-                boxShadow:"0 2px 12px rgba(0,0,0,0.25), 0 0 0 1px rgba(255,255,255,0.2) inset",
-                flexShrink:0,
-                overflow:"hidden",
-              }}>
-                {user.avatar ? (
-                  <img src={user.avatar} alt="avatar" style={{width:"100%", height:"100%", objectFit:"cover"}}/>
-                ) : (
-                  <span style={{color:"white", fontWeight:900, fontSize:17, letterSpacing:"-0.5px"}}>{initials}</span>
-                )}
+              <div style={{width:42,height:42,borderRadius:14,background:user.avatar?"transparent":"linear-gradient(135deg,rgba(255,255,255,0.3),rgba(255,255,255,0.15))",border:"2px solid rgba(255,255,255,0.5)",display:"flex",alignItems:"center",justifyContent:"center",boxShadow:"0 2px 12px rgba(0,0,0,0.25), 0 0 0 1px rgba(255,255,255,0.2) inset",flexShrink:0,overflow:"hidden"}}>
+                {user.avatar
+                  ? <img src={user.avatar} alt="avatar" style={{width:"100%",height:"100%",objectFit:"cover"}}/>
+                  : <span style={{color:"white",fontWeight:900,fontSize:17,letterSpacing:"-0.5px"}}>{initials}</span>
+                }
               </div>
               <div style={{display:"none"}} id="nav-name-block">
-                <p style={{color:"white", fontWeight:900, fontSize:14, letterSpacing:"-0.4px", margin:0, lineHeight:1.2}}>{user.fullName.firstName}</p>
-                <p style={{color:"rgba(255,255,255,0.6)", fontWeight:600, fontSize:11, margin:0}}>My Profile</p>
+                <p style={{color:"white",fontWeight:900,fontSize:14,letterSpacing:"-0.4px",margin:0,lineHeight:1.2}}>{user.fullName.firstName}</p>
+                <p style={{color:"rgba(255,255,255,0.6)",fontWeight:600,fontSize:11,margin:0}}>My Profile</p>
               </div>
             </button>
 
-            {/* ── CENTER ── */}
-            <div style={{flex:1, display:"flex", alignItems:"center", justifyContent:"center"}}>
-
-              {/* Mobile brand */}
-              <div className="nav-mobile-only" style={{display:"flex", alignItems:"center", gap:8}}>
+            {/* Center */}
+            <div style={{flex:1,display:"flex",alignItems:"center",justifyContent:"center"}}>
+              <div className="nav-mobile-only" style={{display:"flex",alignItems:"center",gap:8}}>
                 <div style={{width:32,height:32,borderRadius:10,background:"rgba(255,255,255,0.22)",border:"1.5px solid rgba(255,255,255,0.35)",display:"flex",alignItems:"center",justifyContent:"center",boxShadow:"0 2px 8px rgba(0,0,0,0.2)"}}>
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="white"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
                 </div>
                 <span style={{color:"white",fontWeight:900,fontSize:19,letterSpacing:"-0.6px"}}>Insta<span style={{color:"#fbcfe8"}}>Dopamine</span></span>
               </div>
 
-              {/* Desktop brand + connect */}
               <div className="nav-desktop" style={{display:"none",alignItems:"center",gap:10,width:"100%",maxWidth:500}}>
                 <div style={{display:"flex",alignItems:"center",gap:8,flexShrink:0}}>
                   <div style={{width:28,height:28,borderRadius:9,background:"rgba(255,255,255,0.22)",border:"1.5px solid rgba(255,255,255,0.3)",display:"flex",alignItems:"center",justifyContent:"center"}}>
@@ -300,7 +289,7 @@ function Home({ user, setUser }) {
               </div>
             </div>
 
-            {/* ── RIGHT actions ── */}
+            {/* Right actions */}
             <div style={{display:"flex",alignItems:"center",gap:8,flexShrink:0}}>
 
               {/* Mobile connect */}
@@ -377,7 +366,7 @@ function Home({ user, setUser }) {
           <div style={{height:1,background:"linear-gradient(90deg,transparent,rgba(255,255,255,0.22),transparent)"}}/>
         </header>
 
-        {/* ── MAIN ── */}
+        {/* Main */}
         <div style={{display:"flex",flex:1,overflow:"hidden",position:"relative"}}>
           <Sidebar
             ref={sidebarRef}
@@ -416,5 +405,6 @@ function Home({ user, setUser }) {
 }
 
 export default Home;
+
 
 
